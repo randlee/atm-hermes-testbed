@@ -22,10 +22,10 @@ registered by the harness before you start, with `fx-at7-beta` registered
 
 Steps:
 
-1. Version gate: capture the ATM version (via `atm doctor --json`'s version
-   field if present, otherwise `atm --version` — the docs do not pin one
-   exact surface for this, so verify with `atm --help` / `atm doctor --help`
-   which one this build supports). If the version is below 1.4.5, record
+1. Version gate: run `atm --version` (prints `atm X.Y.Z`) and `atm doctor
+   --json`; the JSON carries `client_context.version`, `daemon_context.version`
+   and `summary.status`. Record all three in detail; the two versions must be
+   equal. If the version is below 1.4.5, record
    status "skip" with reason "atm < 1.4.5: herdr delivery backend absent"
    for every remaining step and stop (still write the full report).
 2. Herdr-on-PATH gate: run `command -v herdr`. If it is not found, record
