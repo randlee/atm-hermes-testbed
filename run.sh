@@ -11,6 +11,14 @@
 set -eu
 HERE="$(cd "$(dirname "$0")" && pwd)"
 NAME=hermes-testbed
+
+# Secret-file guard (rand's bulletproof rule, requested by fenix@atm-dev):
+# refuse to run if env/allowlist.env has ever been committed/tracked.
+if git -C "$HERE" ls-files --error-unmatch env/allowlist.env >/dev/null 2>&1; then
+  echo "FATAL: env/allowlist.env is TRACKED BY GIT — secret file must never"
+  echo "be committed. git rm --cached env/allowlist.env and re-add via ignore."
+  exit 1
+fi
 PERSIST=""
 PEER=""
 ARGS=""
