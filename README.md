@@ -1,6 +1,6 @@
 # atm-hermes-testbed — isolated ATM graph testing for the hermes fork
 
-**Owner:** loki · **Status:** PHASE 2 IN PROGRESS — matrix tiers A–D green (26 tests + 1 skip); AR integration w/ fenix@atm-dev active (2026-08-28)
+**Owner:** loki · **Status:** PHASE 2 COMPLETE — matrix tiers A–D + D7 green on prerelease/v1.4.6 native arm64 (27 tests, fresh-container validated 2026-08-29)
 
 Isolated container testbed for the hermes-agent fork + ATM, and the backbone for
 Phase AR release validation (atm pre-release dispatches). Migrated 2026-08-29
@@ -102,9 +102,38 @@ PR status (fenix@atm-dev, 2026-08-29):
 - **#1097** native aarch64-unknown-linux-gnu release target — MERGED
   (`ae03b6a91`), closes #1057. First dispatch ships an arm64 tarball → the
   testbed can drop amd64 emulation for native arm64 (follow-up after drop).
-- **#1096** prerelease-archive job + `just prerelease-tag` — in QA-2 fix
-  loop; on merge, first dispatch produces `atm_1.4.6_<triple>.tar.gz` and
-  team-lead sends the {sha, run ids} bundle.
+- **#1096** prerelease-archive job + `just prerelease-tag` — MERGED. First
+  dispatch landed (team-lead bundle 2026-08-29, message 01M17F59FXBS65H6KC5D7D4P3W):
+  - tag `prerelease/v1.4.6`, atm_core_sha `713f17e203addcf7c6c602ad158107fb489407c9`
+  - archive workflow run 33241377678 (all 5 targets green, checksums job green);
+    `atm_1.4.6_aarch64-unknown-linux-gnu.tar.gz`
+    sha256 `42eb708e5d0c94f218f34362b3d5369b02235acc796fcee6d17b3779a07cd389`
+    — **verified locally: download matches byte-for-byte**
+  - wheels CI run 33241429677 at the tag sha; `hermes-atm-wheels-linux-aarch64`
+    job 99071351864 (zip sha256 `37add5e9…`, artifact-zip integrity level);
+    inner wheels: `atm_graft-1.4.6-cp311-abi3-manylinux_2_17_aarch64…`
+    sha256 `09f45cde…`, `hermes_atm-1.4.6-py3-none-any.whl` sha256 `5559a8bb…`
+  - Known CI caveat: 3 "Just lint" jobs failed on that run — pre-existing
+    version-literal test defect being fixed by arch-ctm, unrelated to wheel content.
+- **Validation target:** A–D + D7 + AT suite on NATIVE arm64 (no qemu timing
+  caveats on this host). E0/AT* prompt execution still gated on
+  ANTHROPIC_API_KEY in env/allowlist.env.
+- **1.4.6 daemon startup gate (discovered 2026-08-29):** the daemon now
+  refuses to start without mTLS config ("mTLS requires one enabled peer
+  interface" / "configured local identity"). Fix: `harness/setup-mtls.sh`
+  (recipe from atm-core scripts/smoke/benchmark_mtls.py: self-signed cert
+  bundle + `atm peer interface set --bind 127.0.0.1:43101 --enabled` +
+  `atm peer certificate init`); run.sh runs it automatically after boot.
+  Pitfall found: `atm peer certificate show` prints "null" with exit 0 when
+  absent — the idempotency check must test the value, not the exit code.
+- **D7 status:** IMPLEMENTED and PASSING on prerelease/v1.4.6 (native
+  arm64). Assertions target the routing contract (backendType=herdr
+  metadata persisted, send dispatched without ATM_HERDR_UNAVAILABLE,
+  daemon log outcome=sent, agent snapshot reachable) — NOT pane-text
+  rendering, because the hermes TUI input buffer doesn't appear in
+  pane capture (verified). Pitfall: `--backend herdr --session <name>`
+  makes the daemon probe `sessions/<name>/herdr.sock`; the default server
+  uses the default socket, so D7 registers WITHOUT --session.
 
 - **Install target:** the first pre-release dispatch carrying the Phase AQ
   herdr backend (planned as **1.4.6** per Rand's mandatory patch++ bump rule;

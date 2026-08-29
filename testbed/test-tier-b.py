@@ -35,37 +35,44 @@ TEAM_FMT = "b-{suffix}"
 
 
 def expected_envelope(kind: str, sender: str, team: str, mid: str,
-                      description: str = "", task_id: str = "") -> str:
+                      description: str = "", task_id: str = "",
+                      body: str = "") -> str:
+    """1.4.3 injected only the envelope. 1.4.6 (develop) appends the raw
+    message body after the envelope, separated by a blank line:
+    `envelope + "\n\n" + body`. The `body` arg carries that trailing text."""
     head = f'<atm from="{sender}@{team}" message-id="{mid}">'
+    env = ""
     if kind == "delivery":
-        return (f"{head}\n  <action>read atm --team {team}</action>\n"
-                f"  <description>{description}</description>\n"
-                f"  <action>execute the assigned task</action>\n"
-                f'  <when idle="immediate" busy="after-current-task"/>\n'
-                f'  <console announce="concise" pause="false"/>\n</atm>')
-    if kind == "delivery_ack":
-        return (f"{head}\n  <action>read atm --team {team}</action>\n"
-                f"  <action>ack the message</action>\n"
-                f"  <description>{description}</description>\n"
-                f"  <action>execute the assigned task</action>\n"
-                f'  <when idle="immediate" busy="after-current-task"/>\n'
-                f'  <console announce="concise" pause="false"/>\n</atm>')
-    if kind == "delivery_task":
-        return (f"{head}\n  <action>read atm --team {team}</action>\n"
-                f'  <task id="{task_id}">{description}</task>\n'
-                f"  <action>execute the assigned task</action>\n"
-                f'  <when idle="immediate" busy="after-current-task"/>\n'
-                f'  <console announce="concise" pause="false"/>\n</atm>')
-    if kind == "delivery_task_ack":
-        return (f"{head}\n  <action>read atm --team {team}</action>\n"
-                f"  <action>ack the message</action>\n"
-                f'  <task id="{task_id}">{description}</task>\n'
-                f"  <action>execute the assigned task</action>\n"
-                f'  <when idle="immediate" busy="after-current-task"/>\n'
-                f'  <console announce="concise" pause="false"/>\n</atm>')
-    if kind == "acknowledge":
-        return f'<atm kind="ack" from="{sender}@{team}" message-id="{mid}"/>'
-    raise ValueError(kind)
+        env = (f"{head}\n  <action>read atm --team {team}</action>\n"
+               f"  <description>{description}</description>\n"
+               f"  <action>execute the assigned task</action>\n"
+               f'  <when idle="immediate" busy="after-current-task"/>\n'
+               f'  <console announce="concise" pause="false"/>\n</atm>')
+    elif kind == "delivery_ack":
+        env = (f"{head}\n  <action>read atm --team {team}</action>\n"
+               f"  <action>ack the message</action>\n"
+               f"  <description>{description}</description>\n"
+               f"  <action>execute the assigned task</action>\n"
+               f'  <when idle="immediate" busy="after-current-task"/>\n'
+               f'  <console announce="concise" pause="false"/>\n</atm>')
+    elif kind == "delivery_task":
+        env = (f"{head}\n  <action>read atm --team {team}</action>\n"
+               f'  <task id="{task_id}">{description}</task>\n'
+               f"  <action>execute the assigned task</action>\n"
+               f'  <when idle="immediate" busy="after-current-task"/>\n'
+               f'  <console announce="concise" pause="false"/>\n</atm>')
+    elif kind == "delivery_task_ack":
+        env = (f"{head}\n  <action>read atm --team {team}</action>\n"
+               f"  <action>ack the message</action>\n"
+               f'  <task id="{task_id}">{description}</task>\n'
+               f"  <action>execute the assigned task</action>\n"
+               f'  <when idle="immediate" busy="after-current-task"/>\n'
+               f'  <console announce="concise" pause="false"/>\n</atm>')
+    elif kind == "acknowledge":
+        env = f'<atm kind="ack" from="{sender}@{team}" message-id="{mid}"/>'
+    else:
+        raise ValueError(kind)
+    return env + (f"\n\n{body}" if body else "")
 
 
 class Receiver:
@@ -196,7 +203,7 @@ async def _envelope_case(team: str, tag: str, extra: list[str] | None,
         assert ev is not None, f"{tag}: no injected event"
         got = _event_text(ev)
         want = expected_envelope(kind, "alpha", team, mid, description=body,
-                                 task_id=task_id)
+                                 task_id=task_id, body=body)
         assert got == want, (
             f"{tag}: envelope mismatch\n--- got ---\n{got}\n--- want ---\n{want}")
     finally:
@@ -245,7 +252,8 @@ async def b3_ack_envelope_two_receivers(team: str) -> None:
         evb = await wait_event(rb)
         assert evb is not None, "beta got no ack-envelope nudge"
         got = _event_text(evb)
-        want = expected_envelope("acknowledge", "alpha", team, reply_mid)
+        want = expected_envelope("acknowledge", "alpha", team, reply_mid,
+                                 body="B3-DONE")
         assert got == want, f"ack envelope mismatch\n--- got ---\n{got}\n--- want ---\n{want}"
     finally:
         ra.close()

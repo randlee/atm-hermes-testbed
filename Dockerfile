@@ -30,9 +30,14 @@ COPY --chmod=0755 assets/herdr-linux-x86_64 /usr/local/bin/herdr
 # build.sh) install through the identical COPY/install path.
 ARG ATM_TARBALL=atm_1.4.3_x86_64-unknown-linux-gnu.tar.gz
 COPY assets/${ATM_TARBALL} /tmp/atm.tar.gz
+# Layout-tolerant install: 1.4.3+ prerelease archives nest under a top-level
+# dir (atm_<ver>_<triple>/bin/...); older releases are flat (bin/...). Find
+# the binaries wherever they land.
 RUN mkdir -p /tmp/atm-dist && tar -xzf /tmp/atm.tar.gz -C /tmp/atm-dist && \
-    install -m 0755 /tmp/atm-dist/bin/atm /usr/local/bin/atm && \
-    install -m 0755 /tmp/atm-dist/bin/atm-daemon /usr/local/bin/atm-daemon && \
+    ATM_BIN="$(find /tmp/atm-dist -type f -path '*/bin/atm' | head -1)" && \
+    ATMD_BIN="$(find /tmp/atm-dist -type f -path '*/bin/atm-daemon' | head -1)" && \
+    install -m 0755 "$ATM_BIN" /usr/local/bin/atm && \
+    install -m 0755 "$ATMD_BIN" /usr/local/bin/atm-daemon && \
     rm -rf /tmp/atm.tar.gz /tmp/atm-dist
 
 # hermes-atm (injection seam client) into the hermes venv.
@@ -63,6 +68,7 @@ COPY assets/asset-provenance.txt /opt/testbed/asset-provenance.txt
 COPY --chmod=0755 testbed/harness/restart-daemon.sh /opt/testbed/harness/restart-daemon.sh
 COPY --chmod=0755 testbed/harness/freeze-daemon.sh /opt/testbed/harness/freeze-daemon.sh
 COPY --chmod=0755 testbed/harness/install-claude-code.sh /opt/testbed/harness/install-claude-code.sh
+COPY --chmod=0755 testbed/harness/setup-mtls.sh /opt/testbed/harness/setup-mtls.sh
 
 # Testbed runtime lives entirely inside the container:
 #  - hermes state under /opt/data (never host-mounted)

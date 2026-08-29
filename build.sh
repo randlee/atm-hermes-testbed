@@ -57,6 +57,11 @@ fetch_assets() {
 
   if [ -n "${ATM_TARBALL:-}" ]; then
     [ -f "$ATM_TARBALL" ] || { echo "FATAL: ATM_TARBALL not found: $ATM_TARBALL"; exit 1; }
+    # Keep the SOURCE basename (it carries the real version) — the testbed
+    # glob only requires atm_*_${ATM_ARCH}-unknown-linux-gnu.tar.gz.
+    ATM_ARCHIVE="$(basename "$ATM_TARBALL")"
+    echo "$ATM_ARCHIVE" | grep -q "_${ATM_ARCH}-unknown-linux-gnu.tar.gz" || \
+      { echo "FATAL: ATM_TARBALL name does not match atm_*_${ATM_ARCH}-unknown-linux-gnu.tar.gz"; exit 1; }
     cp -f "$ATM_TARBALL" "$ATM_ARCHIVE"
     ATM_VERSION=$(echo "$ATM_ARCHIVE" | sed "s/atm_\\(.*\\)_${ATM_ARCH}.*/\\1/")
     echo "atm tarball override: $ATM_TARBALL (sha256 $(shasum -a 256 "$ATM_ARCHIVE" | cut -d' ' -f1))"

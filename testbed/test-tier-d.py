@@ -16,6 +16,7 @@ Scope split (2026-08-27, verified against atm-core source):
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 import sys
 import time
@@ -143,8 +144,98 @@ def d6_agent_list_surface(label: str) -> None:
     assert rc == 0, out[:200]
 
 
+def _herdr_backend_available() -> bool:
+    """atm-daemon carries the herdr delivery backend (Phase AQ, first shipped
+    in the prerelease/v1.4.6 dispatch)."""
+    p = subprocess.run(["sh", "-c", "strings /usr/local/bin/atm-daemon 2>/dev/null | grep -ci herdr"],
+                       capture_output=True, text=True)
+    return p.returncode == 0 and p.stdout.strip().isdigit() and int(p.stdout.strip()) > 0
+
+
 def d7_herdr_nudge_routing(label: str) -> None:
-    raise AssertionError("unreachable: D7 is skipped, not run")
+    """ATM -> herdr nudge routing (D7), real daemon + real herdr server.
+
+    Contract under test (atm-daemon-bootstrap received_hook_selector +
+    atm-herdr HerdrProcessAdapter on origin/develop):
+      send -> durable write -> receiver hook -> herdr agent prompt
+      (<member> "You have unread ATM messages. Run: atm read")
+    Assertions target the ROUTING contract, not TUI text rendering:
+      1. herdr agent started via `herdr agent start --kind hermes` is
+         interactive_ready (herdr side reachable).
+      2. roster member registered with --backend herdr persists
+         backendType=herdr metadata (SQLite team_roster.metadata_json).
+      3. send exits 0, message id returned, and stdout carries NO
+         ATM_HERDR_UNAVAILABLE (the hook dispatched, breaker closed).
+      4. daemon observability log shows action=send outcome=sent for the id.
+      5. the agent snapshot is still reachable afterwards (agent get).
+    """
+    team = f"d7-{label}"
+    sender, receiver = f"fx-{label}-send", f"fx-{label}-recv"
+    agent_name = f"fx-d7-{label}"
+
+    # herdr server + workspace + agent (default session — no --session flag:
+    # a named session makes the daemon probe sessions/<name>/herdr.sock, which
+    # does not exist for the default server; verified empirically 2026-08-29).
+    herdr(["workspace", "create", "--label", label], expect_rc=None)
+    listed = json.loads(herdr(["workspace", "list"])[1])
+    wid = next((w["workspace_id"] for w in listed["result"]["workspaces"]
+                if w["label"] == label), None)
+    assert wid, f"no workspace for {label}"
+    panes = json.loads(herdr(["pane", "list", "--workspace", wid])[1])
+    pane = panes["result"]["panes"][0]["pane_id"]
+    started = json.loads(herdr(["agent", "start", agent_name, "--kind", "hermes",
+                                "--pane", pane])[1])
+    assert started["result"]["agent"]["interactive_ready"], "agent not interactive_ready"
+
+    # roster: sender + herdr-backend receiver (default herdr session)
+    env = {"ATM_IDENTITY": sender, "ATM_TEAM": team}
+    def atm(*args: str) -> subprocess.CompletedProcess:
+        return subprocess.run(["atm", *args], capture_output=True, text=True,
+                              timeout=90, env={**os.environ, **env})
+    atm("teams", "add", "--team", team)
+    atm("teams", "add-member", team, sender, "--agent-type", "stub",
+        "--home-dir", "/opt/testbed")
+    reg = atm("teams", "add-member", team, receiver, "--agent-type", "hermes",
+              "--home-dir", "/opt/testbed", "--backend", "herdr")
+    assert reg.returncode == 0, reg.stderr[:300]
+
+    # metadata persisted with backendType=herdr
+    import sqlite3 as _sql
+    con = _sql.connect("/root/.atm/db/mail.db")
+    meta = con.execute("select metadata_json from team_roster where team_name=? "
+                       "and agent_name=?", (team, receiver)).fetchone()[0]
+    md = json.loads(meta)
+    assert md.get("backendType") == "herdr", f"backendType missing: {meta}"
+
+    # warm the breaker: let the daemon probe herdr successfully once
+    time.sleep(2)
+
+    # the routing send
+    marker = f"D7-{label.upper()}"
+    snd = atm("send", receiver, marker, "--team", team)
+    assert snd.returncode == 0, snd.stderr[:300]
+    out = snd.stdout + snd.stderr
+    assert "ATM_HERDR_UNAVAILABLE" not in out, \
+        f"herdr hook breaker open: {out[:300]}"
+    assert "message_id:" in out or "Sent to" in out, out[:300]
+
+    # daemon log: outcome sent for this message
+    import re as _re
+    mid_m = _re.search(r"message_id[:\s]+([0-9A-Z]{20,})", out)
+    log = subprocess.run(["sh", "-c", "grep -c '\"outcome\":\"sent\"' "
+                          "/root/.atm/logs/atm.log.jsonl"],
+                         capture_output=True, text=True)
+    assert log.stdout.strip().isdigit() and int(log.stdout.strip()) > 0, \
+        "no sent outcomes in daemon log"
+    if mid_m:
+        idcheck = subprocess.run(["sh", "-c", f"grep -c '{mid_m.group(1)}' "
+                                  "/root/.atm/logs/atm.log.jsonl"],
+                                 capture_output=True, text=True)
+        assert int(idcheck.stdout.strip() or 0) > 0, "message id absent from log"
+
+    # agent still reachable (the daemon's probe path)
+    got = herdr(["agent", "get", agent_name])
+    assert json.loads(got[1])["result"]["agent"]["name"] == agent_name
 
 
 def main() -> int:
@@ -187,13 +278,22 @@ def main() -> int:
             FAILED.append(name)
             REC.fail(name, str(exc))
 
-    # D7: ATM->herdr nudge routing — blocked on an atm pre-release dispatch
-    # carrying the herdr delivery backend (Phase AQ). v1.4.3 and v1.4.4 do NOT
-    # carry it (verified: git grep HerdrSteer on both tags is empty); the first
-    # binary with it is the prerelease dispatch (planned 1.4.6, PR #1096,
-    # team-lead@atm-dev).
-    SKIPPED.append("D7-herdr-nudge-routing (needs first pre-release dispatch w/ herdr backend)")
-    REC.skip("D7-herdr-nudge-routing", "needs first pre-release dispatch (Phase AQ herdr backend)")
+    # D7: ATM->herdr nudge routing — gated on the daemon carrying the herdr
+    # delivery backend (Phase AQ; first shipped in the prerelease/v1.4.6
+    # dispatch). v1.4.3/v1.4.4 do not carry it (strings check); when absent,
+    # skip with reason; when present, run the real routing test.
+    if _herdr_backend_available():
+        try:
+            d7_herdr_nudge_routing(label)
+            print("PASS D7-herdr-nudge-routing")
+            REC.pass_("D7-herdr-nudge-routing")
+        except Exception as exc:  # noqa: BLE001
+            print(f"FAIL D7-herdr-nudge-routing: {exc}")
+            FAILED.append("D7-herdr-nudge-routing")
+            REC.fail("D7-herdr-nudge-routing", str(exc))
+    else:
+        SKIPPED.append("D7-herdr-nudge-routing (atm-daemon lacks the herdr delivery backend)")
+        REC.skip("D7-herdr-nudge-routing", "atm-daemon lacks the herdr delivery backend (Phase AQ)")
 
     result_path = REC.emit("D", "herdr-surface")
     print(f"result: {result_path}")

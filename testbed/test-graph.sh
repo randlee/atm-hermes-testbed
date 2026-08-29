@@ -17,6 +17,16 @@ run_suite() {
   "$PY" "$2" "$SUFFIX" || RC=1
 }
 
+# atm 1.4.6+ hard requirement: mTLS peer interface + local TLS identity must
+# exist BEFORE the daemon starts (otherwise: "mTLS requires one enabled peer
+# interface" / "configured local identity"). Run it here only if the daemon
+# is not up yet (it writes the peer config tables directly); a running daemon
+# means config is already complete. Canonical fresh-run order:
+#   run.sh -> harness/setup-mtls.sh -> atm-daemon -> test-graph.sh
+if ! pgrep -f '[a]tm-daemon' >/dev/null 2>&1 && [ -x /opt/testbed/harness/setup-mtls.sh ]; then
+  /opt/testbed/harness/setup-mtls.sh || echo "WARN: mTLS bootstrap failed"
+fi
+
 if [ "$TIER" = "tier-a" ] || [ "$TIER" = "all" ]; then
   run_suite "TIER-A mailbox semantics" /opt/testbed/test-tier-a.py
 fi
