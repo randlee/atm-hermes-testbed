@@ -60,6 +60,9 @@ COPY testbed/test-tier-c.py /opt/testbed/test-tier-c.py
 COPY testbed/test-tier-d.py /opt/testbed/test-tier-d.py
 COPY --chmod=0755 testbed/test-graph.sh /opt/testbed/test-graph.sh
 COPY assets/asset-provenance.txt /opt/testbed/asset-provenance.txt
+COPY --chmod=0755 testbed/harness/restart-daemon.sh /opt/testbed/harness/restart-daemon.sh
+COPY --chmod=0755 testbed/harness/freeze-daemon.sh /opt/testbed/harness/freeze-daemon.sh
+COPY --chmod=0755 testbed/harness/install-claude-code.sh /opt/testbed/harness/install-claude-code.sh
 
 # Testbed runtime lives entirely inside the container:
 #  - hermes state under /opt/data (never host-mounted)
