@@ -31,12 +31,10 @@ Steps:
    fx-at1b --json` returns the AT1-XTEAM-1 message.
 3. Unknown recipient: `ATM_IDENTITY=fx-at1-alpha atm send
    at1-does-not-exist@fx-at1 "AT1-UNKNOWN-1" --team fx-at1 --json`. Expect a
-   non-zero exit code (observed on atm 1.4.3: exit code 3, stdout EMPTY,
-   error on stderr as Rust debug format `Error(AtmError { code: AgentNotFound,
-   ... })` — NOT a structured JSON object). The canonical error enum is
-   `AtmErrorCode::AgentNotFound` = "ATM_AGENT_NOT_FOUND"
-   (atm-error/src/error_codes.rs). Record the exit code and the stderr
-   code/markers you actually observe.
+   non-zero exit code. The docs do not pin one exact JSON error field/enum
+   spelling for this case — inspect the actual `--json` error output and
+   record in `detail` the exit code plus whatever error/code field and value
+   you observe (do not assume a specific field name).
 4. Identity-only self-send rejected: per docs/requirements.md §6.3 ("reject
    canonical same-team self-addressed sends ... only when the resolved
    destination has no host"), run `ATM_IDENTITY=fx-at1-alpha atm send
