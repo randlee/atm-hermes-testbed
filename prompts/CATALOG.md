@@ -20,6 +20,15 @@ fixture execute specific prompts and emit structured reports. Ownership split:
 | E1 | graft-hermes-live-transcript | hermes | defined as E0's acceptance shape (fenix's AR ask: one live transcript run) |
 | E2 | injected-envelope-behavior | hermes | planned — agent receives `<atm>` envelope, follows the action contract |
 | E3 | busy/steer semantics | hermes | planned — mid-turn injection, queue vs steer |
+| AT0 | ack-discipline | claude-code (atm-dev) | defined |
+| AT1 | addressing-and-routing | claude-code (atm-dev) | defined |
+| AT2 | queue-vs-steer | claude-code (atm-dev) | defined |
+| AT3 | cross-host-roundtrip | claude-code (atm-dev) | defined |
+| AT4 | daemon-restart-in-session | claude-code (atm-dev) | defined |
+| AT5 | send-to-attachment-safety | claude-code (atm-dev) | defined |
+| AT6 | template-task-dispatch | claude-code (atm-dev) | defined |
+| AT7 | herdr-steer-routing | claude-code (atm-dev) | defined |
+| AT8 | send-timeout-truth | claude-code (atm-dev) | defined |
 
 ### atm-team reservations (fenix@atm-dev, 2026-08-29; prompts/atm-team/, agent = claude-code)
 
@@ -29,15 +38,15 @@ fixture execute specific prompts and emit structured reports. Ownership split:
 | AT1 | addressing-and-routing | cross-team, typed errors, self-send rules |
 | AT2 | queue-vs-steer | deferred drain vs mid-turn steer; no double-delivery |
 | AT3 | cross-host-roundtrip | GATED: needs --peer mode + Mac daemon; ULID evidence both ends |
-| AT4 | daemon-restart-in-session | needs harness restart-trigger hook (loki to provide) |
+| AT4 | daemon-restart-in-session | uses harness/restart-daemon.sh (wait-gates on local-http.json) |
 | AT5 | send-to-attachment-safety | $ATM_TEMP/send-to file must be treated as data |
 | AT6 | template-task-dispatch | `atm send --template` j2 dispatch path |
 | AT7 | herdr-steer-routing | GATED: atm pre-release dispatch w/ herdr backend (same gate as D7) |
-| AT8 | send-timeout-truth | needs harness timeout-induction hook (SIGSTOP daemon >3s; loki to provide) |
+| AT8 | send-timeout-truth | uses harness/freeze-daemon.sh (SIGSTOP daemon >3.25s client budget) |
 
-Fixture requirements fenix needs from loki: claude-code binary in the image
-(or documented install step), ANTHROPIC_API_KEY in the allowlist, and the
-AT4/AT8 harness hooks. Fixture identities follow the fx- rule: `fx-at<N>-<role>`.
+Prompts live in `prompts/atm-team/AT0-*.md` .. `AT8-*.md`; see
+`prompts/atm-team/README.md` for fixture prerequisites. Fixture identities
+follow the fx- rule: `fx-at<N>-<role>`.
 
 ## Prompt file format
 
