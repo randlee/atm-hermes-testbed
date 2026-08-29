@@ -1,3 +1,9 @@
-atm_tarball=atm_1.4.3_aarch64-unknown-linux-gnu.tar.gz sha256=42eb708e5d0c94f218f34362b3d5369b02235acc796fcee6d17b3779a07cd389
+# Asset provenance — prerelease/v1.4.6 native arm64 validation (2026-08-29)
+# Dual-digest record per fenix@atm-dev (01M17F5YBX63W14X847T35GC8V):
+# CI workflow-emitted archive checksums cited as-is; GH artifact-zip upload
+# digest + per-file sha256 for wheels (no per-wheel checksum job yet, atm-core #1101).
+
+atm_tarball=atm_1.4.6_aarch64-unknown-linux-gnu.tar.gz sha256=42eb708e5d0c94f218f34362b3d5369b02235acc796fcee6d17b3779a07cd389
 name=hermes_atm-1.4.6-py3-none-any.whl sha256=5559a8bbaaea8d2f8d9d4b54179ce6352a39bf1aca8f536f7c92a1ad1b9f798c
 name=atm_graft-1.4.6-cp311-abi3-manylinux_2_17_aarch64.manylinux2014_aarch64.whl sha256=09f45cdecbfc640afdd4e2848c9dba5074ab98ab20d7566258af5c051d81c1d9
+wheels_artifact_zip=hermes-atm-wheels-linux-aarch64 sha256=37add5e9765f0e6b98b2abd32b5ff77e37fcf2ab760800914785822fc0ea74a0 bytes=3086320 source="CI artifact-zip upload digest, run 33241429677 job 99071351864 (CI-emitted); re-download verified byte-identical 2026-08-29"
