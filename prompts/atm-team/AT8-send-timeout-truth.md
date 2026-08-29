@@ -40,26 +40,37 @@ Steps:
    timing-critical send below is issued.
 4. Timeout send: immediately run `ATM_IDENTITY=fx-at8-alpha atm send
    fx-at8-beta "AT8-TIMEOUT-1" --team fx-at8 --json`. Expect a non-zero exit
-   code and a JSON error payload whose error code corresponds to
-   `WaitTimeout` (record the exact field/value observed — the docs give the
-   Rust enum name `AtmErrorCode::WaitTimeout`, not a pinned CLI JSON
-   spelling). Capture any request id present in the output.
+   code. Observed on atm 1.4.3 with a 4s freeze: exit code 9, stdout EMPTY,
+   stderr `HTTP client request exceeded its absolute request budget` (the
+   client's hard request-budget abort — NOT a WaitTimeout JSON shape;
+   WaitTimeout / ATM_WAIT_TIMEOUT is the read-wait path). Record the exit
+   code and exact stderr text you observe.
 5. Let the freeze finish: wait-gate (not pass/fail) until the background
    freeze-daemon.sh job from step 3 exits.
 6. Log truth check: search `~/.atm/logs/atm.log.jsonl` (via `atm log filter
    --match command=send` or `atm log tail`, per
    docs/user-documents/doctor-and-log.md) for an entry correlated with the
-   step-4 request (by request id if step 4 captured one, otherwise by the
-   message text `AT8-TIMEOUT-1`) showing the write was durably accepted
-   despite the client-side timeout. Record what you find in `detail`,
-   including whether correlation was by request id or by message text.
-7. No-retry decision: because step 6 shows the write already landed, record
-   explicitly in `detail` that you did NOT resend `AT8-TIMEOUT-1` (a blind
-   retry after a client timeout risks a duplicate delivery — "send timeout
-   != failed write").
-8. Exactly one delivered copy: `ATM_IDENTITY=fx-at8-beta atm read --team
-   fx-at8 --history --json` shows exactly one `AT8-TIMEOUT-1` message (no
-   duplicate from a retry, no loss).
+   step-4 request (by the message text `AT8-TIMEOUT-1`). Determine which of
+   two outcomes occurred and record it in `detail`:
+   (a) DURABLE ACCEPT — a log entry shows the write was accepted despite the
+       client timeout, and/or step 8 finds the message delivered; or
+   (b) WRITE LOST — no such entry and step 8 finds no message. (Empirical on
+       atm 1.4.3 with a full 4s SIGSTOP freeze: the client's budget abort
+       tears down the request and the write does NOT land — outcome (b). The
+       slow-but-alive case from the 2026-08-29 incident is outcome (a). The
+       whole point of this test is to measure which one THIS daemon build
+       exhibits, so do not assume.)
+7. Retry decision FROM EVIDENCE: if step 6 shows (a) durable accept, record
+   that you did NOT resend `AT8-TIMEOUT-1` (blind retry risks duplicate
+   delivery — "send timeout != failed write"). If step 6 shows (b) lost,
+   record that a retry IS justified for this outcome (the write never landed,
+   so there is no duplicate risk) — but still do not resend inside this
+   test; note the policy conclusion in `detail`.
+8. Delivery count: `ATM_IDENTITY=fx-at8-beta ATM_TEAM=fx-at8 atm list
+   fx-at8-beta --all --json` — count occurrences of `AT8-TIMEOUT-1` in
+   rows[]. Record the exact count (0 or 1; on atm 1.4.3 freeze, expect 0).
+   The verdict for this step is pass as long as the count matches the step-6
+   outcome; a count of 2 (duplicate) or a mismatch with step 6 is a fail.
 
 REPORT CONTRACT — after step 8 (or immediately after step 1 if skipped),
 write the file /opt/testbed/results/prompt-AT8.json with exactly this shape
