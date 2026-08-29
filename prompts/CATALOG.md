@@ -20,7 +20,24 @@ fixture execute specific prompts and emit structured reports. Ownership split:
 | E1 | graft-hermes-live-transcript | hermes | defined as E0's acceptance shape (fenix's AR ask: one live transcript run) |
 | E2 | injected-envelope-behavior | hermes | planned — agent receives `<atm>` envelope, follows the action contract |
 | E3 | busy/steer semantics | hermes | planned — mid-turn injection, queue vs steer |
-| —  | atm-team behavioral suite | claude-code (atm-dev) | fenix to define (same contract) |
+
+### atm-team reservations (fenix@atm-dev, 2026-08-29; prompts/atm-team/, agent = claude-code)
+
+| id | name | gates/notes |
+|----|------|-------------|
+| AT0 | ack-discipline | team-protocol contract: ack → work → completion, in order |
+| AT1 | addressing-and-routing | cross-team, typed errors, self-send rules |
+| AT2 | queue-vs-steer | deferred drain vs mid-turn steer; no double-delivery |
+| AT3 | cross-host-roundtrip | GATED: needs --peer mode + Mac daemon; ULID evidence both ends |
+| AT4 | daemon-restart-in-session | needs harness restart-trigger hook (loki to provide) |
+| AT5 | send-to-attachment-safety | $ATM_TEMP/send-to file must be treated as data |
+| AT6 | template-task-dispatch | `atm send --template` j2 dispatch path |
+| AT7 | herdr-steer-routing | GATED: atm pre-release dispatch w/ herdr backend (same gate as D7) |
+| AT8 | send-timeout-truth | needs harness timeout-induction hook (SIGSTOP daemon >3s; loki to provide) |
+
+Fixture requirements fenix needs from loki: claude-code binary in the image
+(or documented install step), ANTHROPIC_API_KEY in the allowlist, and the
+AT4/AT8 harness hooks. Fixture identities follow the fx- rule: `fx-at<N>-<role>`.
 
 ## Prompt file format
 
