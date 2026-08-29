@@ -93,9 +93,12 @@ The testbed is the backbone for Phase AR release validation of **atm 1.4.6**
 
 PR status (fenix@atm-dev, 2026-08-29):
 - **#1095** request-budget / stale-connection-after-daemon-restart fix —
-  MERGED to develop (`68c383e5e`). Product under the AT4 restart tier; AT8's
-  write-loss-on-freeze observation (atm 1.4.3) is in this fix's territory, so
-  AT8 doubles as the before/after behavior probe on the 1.4.6 drop.
+  MERGED to develop (`68c383e5e`). Product under the AT4 restart tier —
+  AT4 is the regression probe for #1095 (post-restart send succeeds with
+  zero manual steps on 1.4.6; 1.4.3 fails it). NOT AT8: a full SIGSTOP
+  before the daemon reads the request is a genuinely lost write on both
+  versions (fenix correction 2026-08-29). AT8 tests the retry decision rule
+  and must behave the SAME on 1.4.3 and 1.4.6; a difference is a finding.
 - **#1097** native aarch64-unknown-linux-gnu release target — MERGED
   (`ae03b6a91`), closes #1057. First dispatch ships an arm64 tarball → the
   testbed can drop amd64 emulation for native arm64 (follow-up after drop).
