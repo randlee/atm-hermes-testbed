@@ -88,8 +88,20 @@ aarch64-linux atm archive ever ships.
 
 ## Phase AR integration (fenix@atm-dev, 2026-08-28)
 
-The testbed is the backbone for Phase AR release validation of **atm 1.4.5**
+The testbed is the backbone for Phase AR release validation of **atm 1.4.6**
 (integration target — 1.4.4 is released/out of scope; Rand directive).
+
+PR status (fenix@atm-dev, 2026-08-29):
+- **#1095** request-budget / stale-connection-after-daemon-restart fix —
+  MERGED to develop (`68c383e5e`). Product under the AT4 restart tier; AT8's
+  write-loss-on-freeze observation (atm 1.4.3) is in this fix's territory, so
+  AT8 doubles as the before/after behavior probe on the 1.4.6 drop.
+- **#1097** native aarch64-unknown-linux-gnu release target — MERGED
+  (`ae03b6a91`), closes #1057. First dispatch ships an arm64 tarball → the
+  testbed can drop amd64 emulation for native arm64 (follow-up after drop).
+- **#1096** prerelease-archive job + `just prerelease-tag` — in QA-2 fix
+  loop; on merge, first dispatch produces `atm_1.4.6_<triple>.tar.gz` and
+  team-lead sends the {sha, run ids} bundle.
 
 - **Install target:** the first pre-release dispatch carrying the Phase AQ
   herdr backend (planned as **1.4.6** per Rand's mandatory patch++ bump rule;
