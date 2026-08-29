@@ -158,9 +158,9 @@ activemq-data/
 .env
 .envrc
 .venv
-env/
+env/*
 venv/
-ENV/
+ENV/*
 env.bak/
 venv.bak/
 
@@ -223,3 +223,7 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# secrets — never commit
+env/allowlist.env
+!env/allowlist.env.example
