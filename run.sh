@@ -1,6 +1,7 @@
 #!/bin/sh
 # hermes-docker-testbed — run script
 # Usage: ./run.sh [--persist NAME] [--gateway] [--peer MAC_NAME]
+# Env: TESTBED_PLATFORM=amd64 (default) | arm64 (native arm64, from 1.4.6 on)
 # Isolation guarantees (non-negotiable):
 #   - NO host mounts: hermes state = /opt/data, atm state = /root/.atm (in-container)
 #   - env: ONLY env/allowlist.env (if present & non-empty); never the host ~/.hermes/.env
@@ -13,6 +14,12 @@ NAME=hermes-testbed
 PERSIST=""
 PEER=""
 ARGS=""
+TESTBED_PLATFORM="${TESTBED_PLATFORM:-amd64}"
+case "$TESTBED_PLATFORM" in
+  amd64) DOCKER_PLAT=linux/amd64 ;;
+  arm64) DOCKER_PLAT=linux/arm64 ;;
+  *) echo "FATAL: TESTBED_PLATFORM must be amd64 or arm64"; exit 1 ;;
+esac
 while [ $# -gt 0 ]; do
   case "$1" in
     --persist) PERSIST="$2"; shift 2 ;;
@@ -42,8 +49,8 @@ if [ -n "$PEER" ]; then
   echo "  ssh: ssh -p 2222 -i <testbed key> root@localhost   (key-only)"
 fi
 
-docker run -d --name "$NAME" --platform linux/amd64 $ARGS loki/hermes-testbed:testbed
-echo "started: $NAME"
+docker run -d --name "$NAME" --platform "$DOCKER_PLAT" $ARGS loki/hermes-testbed:testbed
+echo "started: $NAME (platform: $DOCKER_PLAT)"
 sleep 8
 docker logs "$NAME" 2>&1 | head -20
 echo "---"
