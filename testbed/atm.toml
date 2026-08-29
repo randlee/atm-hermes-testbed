@@ -1,0 +1,21 @@
+# Test-team .atm.toml for the container testbed.
+# Isolation rule: this config lives inside the image/container only.
+[core]
+default_team = "testbed"
+
+[atm]
+default_team = "testbed"
+
+[rmux]
+session = "testbed"
+
+[[rmux.windows]]
+name = "agents"
+
+[[rmux.windows.panes]]
+name = "stub-alpha"
+env = { ATM_IDENTITY = "stub-alpha", ATM_TEAM = "testbed" }
+
+[[rmux.windows.panes]]
+name = "stub-beta"
+env = { ATM_IDENTITY = "stub-beta", ATM_TEAM = "testbed" }

@@ -1,3 +1,10 @@
+env/allowlist.env
+env/peer-key
+*.log
+# Release binaries — re-fetch with ./fetch-assets.sh (checksums pinned in assets/checksums.txt)
+assets/atm_*.tar.gz
+assets/herdr-*
+assets/*.whl
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[codz]
