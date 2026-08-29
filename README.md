@@ -118,11 +118,13 @@ PR status (fenix@atm-dev, 2026-08-29):
 - **Validation target:** A–D + D7 + AT suite on NATIVE arm64 (no qemu timing
   caveats on this host). E0/AT* prompt execution still gated on
   ANTHROPIC_API_KEY in env/allowlist.env.
-- **1.4.6 daemon startup gate (discovered 2026-08-29):** the daemon now
-  refuses to start without mTLS config ("mTLS requires one enabled peer
-  interface" / "configured local identity"). Fix: `harness/setup-mtls.sh`
-  (recipe from atm-core scripts/smoke/benchmark_mtls.py: self-signed cert
-  bundle + `atm peer interface set --bind 127.0.0.1:43101 --enabled` +
+- **Daemon startup gate — mTLS (introduced 1.4.3→1.4.4, NOT 1.4.6 — corrected
+  by fenix@atm-dev 01M17HN742SV1CMN9CSR5VZR1H; verified at source: peer-tls
+  crate exists at v1.4.4, absent at v1.4.3):** the daemon refuses to start
+  without mTLS config ("mTLS requires one enabled peer interface" /
+  "configured local identity"). Fix: `harness/setup-mtls.sh` (recipe from
+  atm-core scripts/smoke/benchmark_mtls.py: self-signed cert bundle +
+  `atm peer interface set --bind 127.0.0.1:43101 --enabled` +
   `atm peer certificate init`); run.sh runs it automatically after boot.
   Pitfall found: `atm peer certificate show` prints "null" with exit 0 when
   absent — the idempotency check must test the value, not the exit code.

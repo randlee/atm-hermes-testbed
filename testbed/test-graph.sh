@@ -17,7 +17,7 @@ run_suite() {
   "$PY" "$2" "$SUFFIX" || RC=1
 }
 
-# atm 1.4.6+ hard requirement: mTLS peer interface + local TLS identity must
+# atm 1.4.4+ hard requirement: mTLS peer interface + local TLS identity must
 # exist BEFORE the daemon starts (otherwise: "mTLS requires one enabled peer
 # interface" / "configured local identity"). Run it here only if the daemon
 # is not up yet (it writes the peer config tables directly); a running daemon

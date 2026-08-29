@@ -60,7 +60,7 @@ fi
 docker run -d --name "$NAME" --platform "$DOCKER_PLAT" $ARGS loki/hermes-testbed:testbed
 echo "started: $NAME (platform: $DOCKER_PLAT)"
 sleep 8
-# atm 1.4.6+ hard startup requirement: mTLS peer interface + local identity
+# atm 1.4.4+ hard startup requirement: mTLS peer interface + local identity
 # must exist before the daemon starts (harness/setup-mtls.sh, idempotent).
 docker exec "$NAME" sh -c '[ -x /opt/testbed/harness/setup-mtls.sh ] && /opt/testbed/harness/setup-mtls.sh' \
   2>&1 | tail -2 || true
