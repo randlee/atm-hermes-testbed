@@ -78,10 +78,15 @@ id hermes >/dev/null 2>&1 && chown -R hermes /opt/testbed/results /opt/testbed/e
 # The daemon's state lives under /root/.atm (root-only), but prompt agents
 # run non-root and must reach the endpoint record + mail.db + logs (E0 found
 # this: 'failed to inspect local runtime directory' from uid 10000). Open
-# traversal on /root (711 = traverse, no listing) and read/write on the atm
-# state tree. Isolated fixture container — acceptable wall relaxation.
+# traversal on /root (711 = traverse, no listing). CRITICAL: the daemon/
+# endpoint directory itself must stay 755 — the daemon refuses to start if
+# it is group/world-writable ("endpoint record directory must not be writable
+# by others"). Only the endpoint FILES need world-read; db/ and logs/ need
+# world-write (SQLite journals) for non-root clients.
 chmod 711 /root 2>/dev/null || true
-chmod -R a+rwX /root/.atm 2>/dev/null || true
+chmod 755 /root/.atm /root/.atm/daemon 2>/dev/null || true
+chmod -R a+rX /root/.atm/daemon 2>/dev/null || true
+chmod -R a+rwX /root/.atm/db /root/.atm/logs 2>/dev/null || true
 
 if [ "$AGENT" = hermes ]; then
   hermes chat --query-file "$PROMPT" \
