@@ -38,8 +38,9 @@ while [ $# -gt 0 ]; do
 done
 
 # env allowlist — only if the file exists and has at least one non-empty value
+# (BRE pitfall: `+` is literal in grep without -E — use -E here)
 ENVFILE="$HERE/env/allowlist.env"
-if [ -f "$ENVFILE" ] && grep -q '^[A-Z_]*=.+' "$ENVFILE"; then
+if [ -f "$ENVFILE" ] && grep -Eq '^[A-Z_][A-Z_0-9]*=[^[:space:]]' "$ENVFILE"; then
   ARGS="$ARGS --env-file $ENVFILE"
 fi
 
