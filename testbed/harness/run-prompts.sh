@@ -51,6 +51,32 @@ case "$ID" in
       --agent-type stub --home-dir /opt/testbed/e0 >/dev/null 2>&1 || true
     mkdir -p /opt/testbed/e0
     ;;
+  AT0|AT2|AT4|AT5|AT6)
+    # prompts that run both members over one team (name pattern fx-at<N>)
+    N=${ID#AT}
+    atm teams add "fx-at$N" >/dev/null 2>&1 || true
+    for M in alpha beta; do
+      ATM_IDENTITY="fx-at$N-$M" ATM_TEAM="fx-at$N" atm teams add-member "fx-at$N" "fx-at$N-$M" \
+        --agent-type stub --home-dir "/opt/testbed/at$N" >/dev/null 2>&1 || true
+    done
+    mkdir -p "/opt/testbed/at$N"
+    ;;
+  AT1)
+    atm teams add fx-at1 >/dev/null 2>&1 || true
+    ATM_IDENTITY=fx-at1-alpha ATM_TEAM=fx-at1 atm teams add-member fx-at1 fx-at1-alpha \
+      --agent-type stub --home-dir /opt/testbed/at1 >/dev/null 2>&1 || true
+    ATM_IDENTITY=fx-at1-beta ATM_TEAM=fx-at1 atm teams add-member fx-at1 fx-at1-beta \
+      --agent-type stub --home-dir /opt/testbed/at1 >/dev/null 2>&1 || true
+    mkdir -p /opt/testbed/at1
+    ;;
+  AT8)
+    atm teams add fx-at8 >/dev/null 2>&1 || true
+    ATM_IDENTITY=fx-at8-alpha ATM_TEAM=fx-at8 atm teams add-member fx-at8 fx-at8-alpha \
+      --agent-type stub --home-dir /opt/testbed/at8 >/dev/null 2>&1 || true
+    ATM_IDENTITY=fx-at8-beta ATM_TEAM=fx-at8 atm teams add-member fx-at8 fx-at8-beta \
+      --agent-type stub --home-dir /opt/testbed/at8 >/dev/null 2>&1 || true
+    mkdir -p /opt/testbed/at8
+    ;;
   AT3)
     # peer-mode gate: only meaningful when the container was started --peer
     [ -f /root/.ssh/testbed_peer_key ] || { echo "SKIP: AT3 requires peer mode (--peer)"; exit 3; }
@@ -105,7 +131,12 @@ if [ "$AGENT" = hermes ]; then
     --in /opt/testbed 2>&1 | tail -40
 else
   command -v claude >/dev/null 2>&1 || /opt/testbed/harness/install-claude-code.sh
-  claude -p "$(cat "$PROMPT")" --dangerously-skip-permissions \
+  # Strip the YAML frontmatter — claude-code parses a leading '---' as CLI
+  # options and errors out ("unknown option '---'"). It is harness metadata,
+  # not agent instructions.
+  PROMPT_BODY=$(awk 'BEGIN{c=0} /^---[[:space:]]*$/{c++; next} c>=2{print}' "$PROMPT")
+  printf '%s\n' "$PROMPT_BODY" > /tmp/at-prompt-$ID.md
+  claude -p "$(cat /tmp/at-prompt-$ID.md)" --dangerously-skip-permissions \
     --model "${MODEL:-haiku}" 2>&1 | tail -40
 fi
 
