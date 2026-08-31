@@ -70,6 +70,11 @@ rm -f "$REPORT"
 # via os.pathsep) so prompt agents can write their report + workspace there.
 export HERMES_WRITE_SAFE_ROOT="${HERMES_WRITE_SAFE_ROOT:-/opt/data}:/opt/testbed"
 
+# The hermes agent runs as user 'hermes' (uid 10000) but /opt/testbed is
+# root-owned (write denial at the OS level). Give the fixture dirs to the
+# agent user so report + workspace writes succeed.
+id hermes >/dev/null 2>&1 && chown -R hermes /opt/testbed/results /opt/testbed/e0 2>/dev/null || true
+
 if [ "$AGENT" = hermes ]; then
   hermes chat --query-file "$PROMPT" \
     ${MODEL:+-m "$MODEL"} --provider anthropic \
