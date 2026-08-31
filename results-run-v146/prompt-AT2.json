@@ -26,7 +26,7 @@
     {
       "name": "no-immediate-steer-for-queue",
       "status": "skip",
-      "detail": "Log filter shows both steer and queue messages with identical 'command=send' and 'outcome=sent' fields. No documented log field distinguishes queue suppression/marker from steer dispatch. Cannot assert queue-specific dispatch behavior from logs."
+      "detail": "Log filter shows both steer and queue messages with identical 'command=send' and 'outcome=sent' fields. No documented log field distinguishes queue suppression/marker from steer dispatch. Cannot assert queue-specific dispatch behavior from logs. Filed as randlee/atm-core#1121 (delivery_mode log field proposal)."
     },
     {
       "name": "no-double-delivery",
