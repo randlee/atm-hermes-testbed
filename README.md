@@ -181,6 +181,12 @@ PR status (fenix@atm-dev, 2026-08-29):
 - `docker-hermes-testbed` — build/run/teardown + env-allowlist policy (phase 1)
 - `atm-graph-tests` — test matrix + harness (phase 2)
 
+## Repeatable process
+**`SMOKE-TEST-RUNBOOK.md`** — the complete, documented smoke-test process
+(build → boot → matrix → prompt suite → evidence → final report to
+atm-core `sites/reports/colima/` → optional cross-host peer leg). Mandated by
+Rand 2026-08-31.
+
 ## Key paths
 - Project: `~/Documents/github/atm-hermes-testbed/`
 - Fork source (build context, read-only): `~/Documents/github/hermes-agent-randlee`
