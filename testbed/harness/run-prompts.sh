@@ -78,13 +78,27 @@ case "$ID" in
     mkdir -p /opt/testbed/at8
     ;;
   AT3)
-    # peer-mode gate: only meaningful when the container was started --peer
-    [ -f /root/.ssh/testbed_peer_key ] || { echo "SKIP: AT3 requires peer mode (--peer)"; exit 3; }
+    # peer-mode gate: the prompt itself stops at step 1 if no trusted peer is
+    # configured; the harness still registers the local team + member.
+    atm teams add fx-at3 >/dev/null 2>&1 || true
+    ATM_IDENTITY=fx-at3-alpha ATM_TEAM=fx-at3 atm teams add-member fx-at3 fx-at3-alpha \
+      --agent-type stub --home-dir /opt/testbed/at3 >/dev/null 2>&1 || true
+    mkdir -p /opt/testbed/at3
     ;;
   AT7)
     # prerelease dispatch gate: needs the herdr backend (atm >= 1.4.4 dispatch)
     strings /usr/local/bin/atm-daemon 2>/dev/null | grep -qi herdr || \
       { echo "SKIP: AT7 needs a daemon carrying the herdr backend"; exit 3; }
+    atm teams add fx-at7 >/dev/null 2>&1 || true
+    ATM_IDENTITY=fx-at7-alpha ATM_TEAM=fx-at7 atm teams add-member fx-at7 fx-at7-alpha \
+      --agent-type stub --home-dir /opt/testbed/at7 >/dev/null 2>&1 || true
+    # beta on the herdr backend; omit --session so the daemon uses the
+    # default herdr socket (a named --session probes a socket that doesn't
+    # exist — D7 pitfall). herdr server must be up for dispatch evidence.
+    pgrep -f "[h]erdr server" >/dev/null || { nohup herdr server > /tmp/herdr-server.log 2>&1 & sleep 6; }
+    ATM_IDENTITY=fx-at7-beta ATM_TEAM=fx-at7 atm teams add-member fx-at7 fx-at7-beta \
+      --agent-type stub --backend herdr --home-dir /opt/testbed/at7 >/dev/null 2>&1 || true
+    mkdir -p /opt/testbed/at7
     ;;
 esac
 
