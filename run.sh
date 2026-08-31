@@ -52,9 +52,14 @@ fi
 
 if [ -n "$PEER" ]; then
   # Wall exception: two published ports + hostname mapping for peer trust.
-  HOST_IP="${PEER_HOST_IP:-host.docker.internal}"
-  ARGS="$ARGS -p 43101:43101 -p 2222:22 --add-host ${PEER}:${HOST_IP}"
-  echo "PEER MODE: ports 43101/2222 published, --add-host ${PEER}:${HOST_IP}"
+  # --add-host wants an IP/keyword: host-gateway resolves to the host from
+  # inside the VM on every docker backend (colima included).
+  # NOTE: host port 43101 is owned by the Mac's own atm-daemon, so the
+  # container's peer interface publishes on HOST port 43102 (container 43101).
+  # The host trust entry for this fixture must use --https-port 43102.
+  HOST_IP="${PEER_HOST_IP:-host-gateway}"
+  ARGS="$ARGS -p ${PEER_HTTP_PORT:-43102}:43101 -p 2222:22 --add-host ${PEER}:${HOST_IP}"
+  echo "PEER MODE: ports ${PEER_HTTP_PORT:-43102}->43101, 2222->22 published, --add-host ${PEER}:${HOST_IP}"
   echo "  ssh: ssh -p 2222 -i <testbed key> root@localhost   (key-only)"
 fi
 
