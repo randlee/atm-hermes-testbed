@@ -23,7 +23,7 @@ WARMUP_S = 45.0
 def start_daemon() -> None:
     """Start atm-daemon via a detached SHELL launch (empirically the only
     launch mode whose nudge delivery works under qemu; 2026-08-27)."""
-    subprocess.run(["sh", "-c", "pkill -9 -f '[a]tm-daemon' 2>/dev/null; true"],
+    subprocess.run(["sh", "-c", "pkill -9 -x atm-daemon 2>/dev/null; true"],
                    capture_output=True)
     time.sleep(1.0)
     lock = Path("/root/.atm/daemon/owner.lock")

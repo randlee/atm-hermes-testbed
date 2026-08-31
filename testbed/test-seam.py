@@ -39,7 +39,7 @@ def _start_daemon() -> None:
     'atm-daemon' self-matches wrapper shells — match the full binary path,
     and under qemu the process name is qemu-x86_64, not atm-daemon."""
     subprocess.run(
-        ["sh", "-c", "pkill -9 -f '[a]tm-daemon' 2>/dev/null; true"],
+        ["sh", "-c", "pkill -9 -x atm-daemon 2>/dev/null; true"],
         capture_output=True,
     )
     time.sleep(1.0)

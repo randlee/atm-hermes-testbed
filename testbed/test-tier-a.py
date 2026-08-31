@@ -84,7 +84,7 @@ def ensure_roster(team: str, members: list[str]) -> None:
 def ensure_daemon() -> None:
     if DAEMON_RECORD.exists():
         return
-    subprocess.run(["sh", "-c", "pkill -9 -f '[a]tm-daemon' 2>/dev/null; true"],
+    subprocess.run(["sh", "-c", "pkill -9 -x atm-daemon 2>/dev/null; true"],
                    capture_output=True)
     time.sleep(1.0)
     lock = Path("/root/.atm/daemon/owner.lock")
