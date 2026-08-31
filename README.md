@@ -1,6 +1,6 @@
 # atm-hermes-testbed — isolated ATM graph testing for the hermes fork
 
-**Owner:** loki · **Status:** PHASE 2 COMPLETE — matrix tiers A–D + D7 green on prerelease/v1.4.6 native arm64 (27 tests, fresh-container validated 2026-08-29)
+**Owner:** loki · **Status:** PHASE 2 COMPLETE — infra matrix A–D + D7 green AND full prompt suite (E0 + AT0–AT8) validated on prerelease/v1.4.6 native arm64 (2026-08-31)
 
 Isolated container testbed for the hermes-agent fork + ATM, and the backbone for
 Phase AR release validation (atm pre-release dispatches). Migrated 2026-08-29
