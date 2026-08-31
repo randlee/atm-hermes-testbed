@@ -227,3 +227,4 @@ __marimo__/
 # secrets — never commit
 env/allowlist.env
 !env/allowlist.env.example
+.DS_Store
