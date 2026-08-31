@@ -75,6 +75,14 @@ export HERMES_WRITE_SAFE_ROOT="${HERMES_WRITE_SAFE_ROOT:-/opt/data}:/opt/testbed
 # agent user so report + workspace writes succeed.
 id hermes >/dev/null 2>&1 && chown -R hermes /opt/testbed/results /opt/testbed/e0 2>/dev/null || true
 
+# The daemon's state lives under /root/.atm (root-only), but prompt agents
+# run non-root and must reach the endpoint record + mail.db + logs (E0 found
+# this: 'failed to inspect local runtime directory' from uid 10000). Open
+# traversal on /root (711 = traverse, no listing) and read/write on the atm
+# state tree. Isolated fixture container — acceptable wall relaxation.
+chmod 711 /root 2>/dev/null || true
+chmod -R a+rwX /root/.atm 2>/dev/null || true
+
 if [ "$AGENT" = hermes ]; then
   hermes chat --query-file "$PROMPT" \
     ${MODEL:+-m "$MODEL"} --provider anthropic \
@@ -87,6 +95,12 @@ else
 fi
 
 # --- verdict ----------------------------------------------------------------
+# Agents sometimes write the report next to their workspace instead of the
+# exact path in the frontmatter; fall back to locating it.
+if [ ! -f "$REPORT" ]; then
+  FOUND=$(find /opt/testbed -name "$(basename "$REPORT")" -type f 2>/dev/null | head -1)
+  [ -n "$FOUND" ] && { cp -f "$FOUND" "$REPORT" 2>/dev/null || REPORT="$FOUND"; }
+fi
 if [ -f "$REPORT" ]; then
   VERDICT=$(python3 -c "import json;print(json.load(open('$REPORT')).get('verdict','?'))" 2>/dev/null || echo parse-error)
   echo "VERDICT ${ID}: $VERDICT ($REPORT)"
