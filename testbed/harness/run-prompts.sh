@@ -136,8 +136,20 @@ else
   # not agent instructions.
   PROMPT_BODY=$(awk 'BEGIN{c=0} /^---[[:space:]]*$/{c++; next} c>=2{print}' "$PROMPT")
   printf '%s\n' "$PROMPT_BODY" > /tmp/at-prompt-$ID.md
-  claude -p "$(cat /tmp/at-prompt-$ID.md)" --dangerously-skip-permissions \
-    --model "${MODEL:-haiku}" 2>&1 | tail -40
+  # claude-code refuses --dangerously-skip-permissions as root; run as the
+  # 'hermes' user (uid 10000) — also the non-root client path E0 proved.
+  # (su resets the environment, so the API key goes in via a wrapper script.)
+  chmod -R a+rwX /opt/testbed/results 2>/dev/null || true
+  chown -R hermes "/opt/testbed/at${ID#AT}" 2>/dev/null || true
+  {
+    echo '#!/bin/sh'
+    echo "export ANTHROPIC_API_KEY='${ANTHROPIC_API_KEY}'"
+    echo "cd /opt/testbed"
+    echo "exec claude -p \"\$(cat /tmp/at-prompt-$ID.md)\" --dangerously-skip-permissions --model ${MODEL:-haiku}"
+  } > /tmp/at-run-$ID.sh
+  chmod 755 /tmp/at-run-$ID.sh
+  su hermes -s /bin/sh "/tmp/at-run-$ID.sh" 2>&1 | tail -40
+  rm -f "/tmp/at-run-$ID.sh"
 fi
 
 # --- verdict ----------------------------------------------------------------
