@@ -101,6 +101,30 @@ following the smoke pattern:
 - sign-off line: `Validated-by: loki@hermes; Co-signed: fenix@atm-dev (Phase AS owner)`
   — fenix co-signs after review; send the branch to fenix BEFORE the PR
   (target `develop`, doc-lint path).
+- **suite citation:** from `suite/v2` on, the provenance block cites the suite
+  tag directly alongside the atm tag (binding: suite tag ↔ atm tag). The
+  suite/v1 cycle is the exception — its report merged sha-pinned before the
+  scheme existed; the AT3 addendum cites `suite/v1`.
+
+## Step 5b — cut the suite tag (loki + fenix@atm-dev, 2026-08-31)
+
+Tests, prompts, and harness scripts are versioned TOGETHER:
+
+```sh
+# at the END of a validated cycle, once all cycle evidence is committed:
+git tag -a suite/v<N> -m "suite v<N>: <cycle summary, atm tags validated>"
+git push origin suite/v<N>
+```
+
+Rules:
+- `suite/v<N>` is decoupled from the atm version — one suite validates many
+  atm drops; the report provenance cites BOTH tags.
+- Tag at cycle END so it covers everything that produced the cycle's evidence.
+- Major bump on report-contract breaks (`prompt-report-1` schema, row-id
+  scheme); minor/patch at owner discretion for additive changes.
+- Every prompt carries `since: <suite-tag>` (frontmatter + CATALOG.md table).
+- `suite/v1` is cut at the head including the AT3 `--peer` leg (the complete
+  v1.4.6 cycle) — NOT retroactively before AT3 lands.
 
 ## Step 6 — cross-host peer leg (AT3) — optional, needs host coordination
 

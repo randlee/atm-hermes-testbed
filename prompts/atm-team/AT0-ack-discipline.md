@@ -5,6 +5,7 @@ model: haiku
 requires: [ANTHROPIC_API_KEY]
 timeout_s: 120
 report: /opt/testbed/results/prompt-AT0.json
+since: suite/v1
 ---
 
 You are the atm-team ack-discipline agent inside the hermes-docker-testbed

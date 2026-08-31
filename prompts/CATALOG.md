@@ -14,21 +14,21 @@ fixture execute specific prompts and emit structured reports. Ownership split:
 
 ## Test types
 
-| id | name | agent | status |
-|----|------|-------|--------|
-| E0 | graft-api-smoke | hermes | defined (prompt ready; needs Anthropic key in env allowlist to run) |
-| E1 | graft-hermes-live-transcript | hermes | defined as E0's acceptance shape (fenix's AR ask: one live transcript run) |
-| E2 | injected-envelope-behavior | hermes | planned — agent receives `<atm>` envelope, follows the action contract |
-| E3 | busy/steer semantics | hermes | planned — mid-turn injection, queue vs steer |
-| AT0 | ack-discipline | claude-code (atm-dev) | defined |
-| AT1 | addressing-and-routing | claude-code (atm-dev) | defined |
-| AT2 | queue-vs-steer | claude-code (atm-dev) | defined |
-| AT3 | cross-host-roundtrip | claude-code (atm-dev) | defined |
-| AT4 | daemon-restart-in-session | claude-code (atm-dev) | defined |
-| AT5 | send-to-attachment-safety | claude-code (atm-dev) | defined |
-| AT6 | template-task-dispatch | claude-code (atm-dev) | defined |
-| AT7 | herdr-steer-routing | claude-code (atm-dev) | defined |
-| AT8 | send-timeout-truth | claude-code (atm-dev) | defined |
+| id | name | agent | status | since |
+|----|------|-------|--------|-------|
+| E0 | graft-api-smoke | hermes | defined (prompt ready; needs Anthropic key in env allowlist to run) | suite/v1 |
+| E1 | graft-hermes-live-transcript | hermes | defined as E0's acceptance shape (fenix's AR ask: one live transcript run) | suite/v1 |
+| E2 | injected-envelope-behavior | hermes | planned — agent receives `<atm>` envelope, follows the action contract | suite/v1 |
+| E3 | busy/steer semantics | hermes | planned — mid-turn injection, queue vs steer | suite/v1 |
+| AT0 | ack-discipline | claude-code (atm-dev) | defined | suite/v1 |
+| AT1 | addressing-and-routing | claude-code (atm-dev) | defined | suite/v1 |
+| AT2 | queue-vs-steer | claude-code (atm-dev) | defined | suite/v1 |
+| AT3 | cross-host-roundtrip | claude-code (atm-dev) | defined | suite/v1 |
+| AT4 | daemon-restart-in-session | claude-code (atm-dev) | defined | suite/v1 |
+| AT5 | send-to-attachment-safety | claude-code (atm-dev) | defined | suite/v1 |
+| AT6 | template-task-dispatch | claude-code (atm-dev) | defined | suite/v1 |
+| AT7 | herdr-steer-routing | claude-code (atm-dev) | defined | suite/v1 |
+| AT8 | send-timeout-truth | claude-code (atm-dev) | defined | suite/v1 |
 
 ### atm-team reservations (fenix@atm-dev, 2026-08-29; prompts/atm-team/, agent = claude-code)
 
@@ -48,6 +48,24 @@ Prompts live in `prompts/atm-team/AT0-*.md` .. `AT8-*.md`; see
 `prompts/atm-team/README.md` for fixture prerequisites. Fixture identities
 follow the fx- rule: `fx-at<N>-<role>`.
 
+## Suite versioning (loki + fenix@atm-dev decision, 2026-08-31)
+
+Tests, prompts, and harness scripts are versioned TOGETHER as a suite:
+
+- Tag the repo `suite/v<N>` at the END of each validated cycle, covering
+  everything that produced the cycle's evidence. `suite/v1` is cut at the head
+  that includes the AT3 `--peer` leg (the complete v1.4.6 cycle).
+- Decoupled from the atm version: one suite validates many atm drops. The
+  binding lives in the report provenance, which cites BOTH the suite tag and
+  the atm tag. (Aligned names like v1.4.6-suite-1 were rejected — they force a
+  retag per atm patch even when the suite didn't change.)
+- Reports: from `suite/v2` on, every atm-core report cites the suite tag
+  directly in provenance. The AT3 addendum to reports/colima/ cites `suite/v1`.
+- Major bump on report-contract breaks (`prompt-report-1` schema, row-id
+  scheme); minor/patch at owner discretion for additive changes.
+- Every prompt carries `since: <suite-tag>` (frontmatter + catalog table).
+  Existing prompts are stamped `since: suite/v1`.
+
 ## Prompt file format
 
 `prompts/<owner>/<test-id>.md`, YAML frontmatter:
@@ -60,6 +78,7 @@ model: haiku             # cost-class guidance (Tier E is opt-in/cost-tagged)
 requires: [ATM_API_KEY]  # allowlist entries needed (env/allowlist.env)
 timeout_s: 300
 report: /opt/testbed/results/prompt-E0.json
+since: suite/v1          # first suite tag containing this prompt version
 ---
 ```
 

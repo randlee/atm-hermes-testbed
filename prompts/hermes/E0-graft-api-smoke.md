@@ -5,6 +5,7 @@ model: haiku
 requires: [ANTHROPIC_API_KEY]
 timeout_s: 300
 report: /opt/testbed/results/prompt-E0.json
+since: suite/v1
 ---
 
 You are the atm-graft API smoke agent inside the hermes-docker-testbed fixture.

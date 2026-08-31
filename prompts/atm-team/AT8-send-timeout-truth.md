@@ -5,6 +5,7 @@ model: haiku
 requires: [ANTHROPIC_API_KEY]
 timeout_s: 180
 report: /opt/testbed/results/prompt-AT8.json
+since: suite/v1
 ---
 
 You are the atm-team send-timeout-truth agent inside the hermes-docker-testbed

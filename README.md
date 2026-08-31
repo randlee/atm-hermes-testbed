@@ -184,8 +184,16 @@ PR status (fenix@atm-dev, 2026-08-29):
 ## Repeatable process
 **`SMOKE-TEST-RUNBOOK.md`** — the complete, documented smoke-test process
 (build → boot → matrix → prompt suite → evidence → final report to
-atm-core `sites/reports/colima/` → optional cross-host peer leg). Mandated by
-Rand 2026-08-31.
+atm-core `reports/colima/` → optional cross-host peer leg → suite tag).
+Mandated by Rand 2026-08-31.
+
+## Suite versioning (loki + fenix@atm-dev, 2026-08-31)
+Tests, prompts, and harness scripts are versioned together: repo tag
+`suite/v<N>` cut at the END of each validated cycle, decoupled from the atm
+version (one suite validates many drops; report provenance cites both tags).
+Every prompt carries `since: <suite-tag>`. `suite/v1` covers the complete
+v1.4.6 cycle (cut once the AT3 `--peer` leg lands). Details in
+`prompts/CATALOG.md` + runbook step 5b.
 
 ## Key paths
 - Project: `~/Documents/github/atm-hermes-testbed/`

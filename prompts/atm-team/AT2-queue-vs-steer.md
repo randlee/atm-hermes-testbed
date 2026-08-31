@@ -5,6 +5,7 @@ model: haiku
 requires: [ANTHROPIC_API_KEY]
 timeout_s: 90
 report: /opt/testbed/results/prompt-AT2.json
+since: suite/v1
 ---
 
 You are the atm-team queue/steer agent inside the hermes-docker-testbed
