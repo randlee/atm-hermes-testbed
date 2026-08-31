@@ -76,17 +76,27 @@ export HERMES_WRITE_SAFE_ROOT="${HERMES_WRITE_SAFE_ROOT:-/opt/data}:/opt/testbed
 id hermes >/dev/null 2>&1 && chown -R hermes /opt/testbed/results /opt/testbed/e0 2>/dev/null || true
 
 # The daemon's state lives under /root/.atm (root-only), but prompt agents
-# run non-root and must reach the endpoint record + mail.db + logs (E0 found
-# this: 'failed to inspect local runtime directory' from uid 10000). Open
-# traversal on /root (711 = traverse, no listing). CRITICAL: the daemon/
-# endpoint directory itself must stay 755 — the daemon refuses to start if
-# it is group/world-writable ("endpoint record directory must not be writable
-# by others"). Only the endpoint FILES need world-read; db/ and logs/ need
-# world-write (SQLite journals) for non-root clients.
+# run non-root (user 'hermes', uid 10000, HOME=/opt/data). Two things must be
+# true for the agent's atm CLI + graft to reach the root daemon:
+#   1. The agent resolves the daemon endpoint record from $HOME/.atm. Link
+#      /opt/data/.atm -> /root/.atm so it finds the record. (Move any
+#      existing real dir aside first — ln -sfn into an existing dir creates
+#      a nested link instead of replacing it.)
+#   2. With a root-owned runtime directory the client deliberately selects
+#      the capability-authenticated loopback-TCP path (no UDS for non-root;
+#      see preferred_local_client in atm-http-runtime/client.rs). So the
+#      daemon/ dir stays 755 (daemon refuses to start if it is group/world-
+#      writable: "endpoint record directory must not be writable by others"),
+#      endpoint files are world-read, and db/+logs/ are world-write for the
+#      agent's SQLite journals.
 chmod 711 /root 2>/dev/null || true
 chmod 755 /root/.atm /root/.atm/daemon 2>/dev/null || true
 chmod -R a+rX /root/.atm/daemon 2>/dev/null || true
 chmod -R a+rwX /root/.atm/db /root/.atm/logs 2>/dev/null || true
+if [ -e /opt/data/.atm ] && [ ! -L /opt/data/.atm ]; then
+  mv /opt/data/.atm "/opt/data/.atm.bak.$(date +%s)"
+fi
+[ -L /opt/data/.atm ] || ln -s /root/.atm /opt/data/.atm
 
 if [ "$AGENT" = hermes ]; then
   hermes chat --query-file "$PROMPT" \
