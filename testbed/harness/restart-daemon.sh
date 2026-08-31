@@ -3,6 +3,11 @@
 # Restarts the containerized atm-daemon with zero manual steps: kill the
 # running daemon (match the binary, never a wrapper), clear the stale owner
 # lock, relaunch detached, wait-gate on the endpoint record.
+# Self-elevates: prompt agents run non-root but the daemon is root-owned
+# (sudoers scope: this exact path only).
+if [ "$(id -u)" != 0 ]; then
+  exec sudo "$0" "$@"
+fi
 set -eu
 pkill -9 -f '[a]tm-daemon' 2>/dev/null || true
 sleep 1

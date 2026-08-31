@@ -17,6 +17,11 @@
 # Run in the background immediately before the send under test:
 #   /opt/testbed/harness/freeze-daemon.sh 4 &
 #   /opt/testbed/harness/freeze-daemon.sh 4 --after 300 &
+# Self-elevates: prompt agents run non-root but the daemon is root-owned
+# (sudoers scope: this exact path only).
+if [ "$(id -u)" != 0 ]; then
+  exec sudo "$0" "$@"
+fi
 set -eu
 SECS="${1:-4}"
 AFTER_MS=""

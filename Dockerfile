@@ -13,7 +13,7 @@ USER root
 # and daemon live under /root — ssh as root is required to address the same
 # daemon context; documented wall exception in README.
 RUN apt-get -o Acquire::Retries=3 update && \
-    apt-get -o Acquire::Retries=3 install -y --no-install-recommends tmux openssh-server && \
+    apt-get -o Acquire::Retries=3 install -y --no-install-recommends tmux openssh-server sudo && \
     rm -rf /var/lib/apt/lists/* && \
     mkdir -p /run/sshd /root/.ssh && \
     ssh-keygen -A && \
@@ -21,6 +21,11 @@ RUN apt-get -o Acquire::Retries=3 update && \
     cat /root/.ssh/testbed_peer_key.pub >> /root/.ssh/authorized_keys && \
     chmod 600 /root/.ssh/authorized_keys && \
     printf 'Port 22\nPermitRootLogin prohibit-password\nPasswordAuthentication no\nChallengeResponseAuthentication no\nUsePAM no\n' > /etc/ssh/sshd_config.d/testbed.conf
+# Non-root prompt agents (user 'hermes') need to signal/restart the root
+# daemon: scope NOPASSWD sudo to ONLY the two harness hooks that touch the
+# daemon lifecycle (AT4 restart, AT8 freeze). No blanket sudo.
+RUN printf 'hermes ALL=(root) NOPASSWD: /opt/testbed/harness/restart-daemon.sh, /opt/testbed/harness/freeze-daemon.sh\n' > /etc/sudoers.d/testbed-hooks && \
+    chmod 440 /etc/sudoers.d/testbed-hooks
 
 # herdr 0.8.2 — native Rust, musl static, sha256 verified against v0.8.2 release
 COPY --chmod=0755 assets/herdr-linux-x86_64 /usr/local/bin/herdr
