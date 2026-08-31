@@ -28,6 +28,18 @@ echo "prompt: $PROMPT (agent=$AGENT model=${MODEL:-default} timeout=${TIMEOUT:-3
 
 [ -n "${ANTHROPIC_API_KEY:-}" ] || { echo "SKIP: ANTHROPIC_API_KEY not present"; exit 3; }
 
+# hermes passes the model ID straight to the API — aliases 404 (verified:
+# "haiku" → HTTP 404 model: haiku). Map aliases to real IDs; the anthropic
+# plugin profile's default_aux_model pins the haiku one. claude-code (the AT
+# leg) keeps the alias — its CLI resolves them natively.
+if [ "$AGENT" = hermes ]; then
+  case "$MODEL" in
+    haiku)  MODEL=claude-haiku-4-5-20251001 ;;
+    sonnet) MODEL=claude-sonnet-4-5-20250929 ;;
+    opus)   MODEL=claude-opus-4-1-20250805 ;;
+  esac
+fi
+
 # --- per-prompt harness preconditions ---------------------------------------
 case "$ID" in
   E0)
@@ -53,10 +65,15 @@ esac
 rm -f "$REPORT"
 
 # --- execute ----------------------------------------------------------------
+# The fork image sets HERMES_WRITE_SAFE_ROOT=/opt/data, which denies the
+# agent writing reports/results under /opt/testbed. Extend it (multi-prefix
+# via os.pathsep) so prompt agents can write their report + workspace there.
+export HERMES_WRITE_SAFE_ROOT="${HERMES_WRITE_SAFE_ROOT:-/opt/data}:/opt/testbed"
+
 if [ "$AGENT" = hermes ]; then
   hermes chat --query-file "$PROMPT" \
     ${MODEL:+-m "$MODEL"} --provider anthropic \
-    --yolo --max-turns 40 ${TIMEOUT:+--run-budget "$TIMEOUT"} \
+    --yolo --max-turns 60 ${TIMEOUT:+--run-budget "$TIMEOUT"} \
     --in /opt/testbed 2>&1 | tail -40
 else
   command -v claude >/dev/null 2>&1 || /opt/testbed/harness/install-claude-code.sh
