@@ -1,0 +1,46 @@
+{
+  "schema": "prompt-report-1",
+  "test_id": "AT4-daemon-restart-in-session",
+  "agent": "claude-code",
+  "steps": [
+    {
+      "name": "harness-hook-precondition",
+      "status": "pass",
+      "detail": "Restart script /opt/testbed/harness/restart-daemon.sh exists and is executable"
+    },
+    {
+      "name": "pre-restart-baseline",
+      "status": "pass",
+      "detail": "Sent AT4-PRE-1 message from fx-at4-alpha to fx-at4-beta (message_id: 01M1CSS85JT3J67HZ9WWMEDKTH). Baseline count: 1 message in history"
+    },
+    {
+      "name": "restart-triggered",
+      "status": "pass",
+      "detail": "Daemon restart script executed successfully with exit code 0. Script output: 'daemon restarted (endpoint record published)'. New daemon PID: 399"
+    },
+    {
+      "name": "post-restart-send",
+      "status": "fail",
+      "detail": "Send failed with exit code 4: 'failed to read local HTTP endpoint record'. Root cause: endpoint file /root/.atm/daemon/local-http.json has permissions 0600 (rw-------), unreadable by non-root user 'hermes'. Harness script chmod -R a+rX did not make file readable, likely due to race condition (chmod runs before daemon creates file with 0600 umask)"
+    },
+    {
+      "name": "post-restart-read",
+      "status": "fail",
+      "detail": "Read failed with exit code 4: 'failed to read local HTTP endpoint record'. Same permissions issue as post-restart-send step"
+    },
+    {
+      "name": "no-loss-no-duplication",
+      "status": "skip",
+      "detail": "Test skipped - cannot verify due to post-restart-read failure. Would require: AT4-PRE-1 and AT4-POST-1 each exactly once in history, with total count = 1 + 1 = 2"
+    }
+  ],
+  "verdict": "fail",
+  "failure_root_cause": "Harness restart script has a permissions race condition: chmod -R a+rX runs BEFORE daemon creates the endpoint record file, so the file is created with 0600 permissions after chmod completes. The script should chmod AFTER confirming the file exists and is readable",
+  "atm_versions": {
+    "atm": "version not retrieved due to endpoint access failure",
+    "hermes_atm": "version not retrieved due to endpoint access failure",
+    "atm_graft": "version not retrieved due to endpoint access failure"
+  },
+  "started_at": "2026-08-31T20:57:12Z",
+  "finished_at": "2026-08-31T20:57:44Z"
+}

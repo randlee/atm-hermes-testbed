@@ -14,12 +14,16 @@ set -eu
 # atm-daemon). -x matches the daemon's comm exactly.
 pkill -9 -x atm-daemon 2>/dev/null || true
 sleep 1
-rm -f /root/.atm/daemon/owner.lock
+# Remove the STALE endpoint record so the wait-gate targets the NEW daemon's
+# publish (without this, the loop sees the killed daemon's leftover file and
+# chmods it — then the new daemon rewrites it 0600 afterwards).
+rm -f /root/.atm/daemon/owner.lock /root/.atm/daemon/local-http.json
 nohup atm-daemon > /tmp/atm-daemon.log 2>&1 &
 i=0
 while [ $i -lt 60 ]; do
   if [ -f /root/.atm/daemon/local-http.json ]; then
-    # The daemon republishes the endpoint record 0600 on every start.
+    sleep 1  # let the publish settle before re-opening perms
+    # The daemon publishes the endpoint record 0600 on every start.
     # Re-open read access for non-root prompt agents (the AT4 agent keeps
     # using the daemon after this restart — its session must survive it).
     chmod -R a+rX /root/.atm/daemon 2>/dev/null || true
