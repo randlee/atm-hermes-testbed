@@ -154,9 +154,11 @@ fi
 
 # --- verdict ----------------------------------------------------------------
 # Agents sometimes write the report next to their workspace instead of the
-# exact path in the frontmatter; fall back to locating it.
+# exact path in the frontmatter; fall back to locating it (search both
+# /opt/testbed and the agent's HOME dir /opt/data — the latter is where the
+# HOME-symlinked agent writes by default).
 if [ ! -f "$REPORT" ]; then
-  FOUND=$(find /opt/testbed -name "$(basename "$REPORT")" -type f 2>/dev/null | head -1)
+  FOUND=$(find /opt/testbed /opt/data -maxdepth 3 -name "$(basename "$REPORT")" -type f 2>/dev/null | head -1)
   [ -n "$FOUND" ] && { cp -f "$FOUND" "$REPORT" 2>/dev/null || REPORT="$FOUND"; }
 fi
 if [ -f "$REPORT" ]; then
