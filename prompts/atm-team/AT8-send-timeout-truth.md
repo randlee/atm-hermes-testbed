@@ -36,6 +36,15 @@ freeze timings below deliberately select the branch you get:
     the daemon has accepted+persisted but its reply is delayed past the 3.25s
     client budget) -> deterministically branch (b).
 
+Empirical error shape (arch-ctm@atm-dev, observed on atm 1.4.3 with a full
+4s SIGSTOP freeze; forward-ported from closed PR #2, additive note): the
+client's budget abort surfaces as exit code 9 with EMPTY stdout and stderr
+`HTTP client request exceeded its absolute request budget`. This is the
+transport-level budget abort shape — it is NOT a WaitTimeout JSON error body
+(`AtmErrorCode::WaitTimeout` / ATM_WAIT_TIMEOUT is the read-wait path, a
+different surface). Record whatever shape you actually observe; do not
+assume either one.
+
 Context already true in this fixture: the ATM daemon is running; team
 `fx-at8` with members `fx-at8-alpha` and `fx-at8-beta` is registered by the
 harness before you start; the harness freeze hook is
