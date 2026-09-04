@@ -12,11 +12,19 @@ A–D+D7 + AT0–AT8 against the current candidate (1.4.13 content).
   `colima start --cpu 4 --memory 4` or config edit; VM-internal tiers incl.
   the prompt suite are CPU-bound, 4/4 recommended).
 - Tags `prerelease/v1.4.12` (4f1202bf2) and `prerelease/v1.4.13` (7e4302d98)
-  exist on origin. **NO GitHub release assets for either** — Q3 gap is real:
-  the linux x86_64/aarch64 tarballs + wheels CI produces none today. Options:
-  (a) re-dispatch the prerelease-archive workflow at the tag (team-lead's job,
-  PR #1096 machinery exists), (b) build the aarch64 tarball from tag source
-  via the repo's release path, (c) host cargo build — needs Rand's Q3 ruling.
+  exist on origin. Tarballs: NOT GitHub Releases by design — prerelease-archive
+  stores Actions artifacts (fenix correction 2026-09-04). For v1.4.13:
+  `gh run download 33844823008 -n aarch64-unknown-linux-gnu` + checksums
+  artifact (expiry 2026-12-03). Wheels: the Dockerfile does NOT build them —
+  it consumes prebuilt wheels via COPY + uv pip install --no-index, so
+  WHEELS_DIR must supply linux wheels. Source: ci.yml "Hermes ATM release
+  wheel" jobs (manylinux aarch64/x86_64, musllinux) — run 33847454131 green
+  with artifact hermes-atm-wheels-linux-aarch64. Caveat: that run's headSha
+  is ceda87608 (evidence/readiness-1.4.12-atmbench), NOT the tag sha
+  7e4302d98, and ci.yml has no workflow_dispatch. Tag-exact wheels require a
+  throwaway branch push at the tag sha, else rule ceda87608 wheels
+  content-equivalent (fenix/quality-mgr already accepted that equivalence
+  for atmbench evidence).
 - Testbed repo main @ 039f25a: build.sh requires WHEELS_DIR (wheelhouse
   retired — host is hermes-atm 1.4.11, never revert).
 - Held host state (mine, awaiting ruling, both from 2026-08-31 ~21:35Z):
