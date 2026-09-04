@@ -31,9 +31,10 @@ A–D+D7 + AT0–AT8 against the current candidate (1.4.13 content).
     no in-container build) — WHEELS_DIR from the run above satisfies it.
 - Testbed repo main @ 039f25a: build.sh requires WHEELS_DIR (wheelhouse
   retired — host is hermes-atm 1.4.11, never revert).
-- Held host state (mine, awaiting ruling, both from 2026-08-31 ~21:35Z):
-  host trust entry `localhost` fp 4E7B3D2B... port 43102; roster row
-  fx-at3/fx-at3-beta. fenix confirmed both untouched on his side.
+- Held host state (mine): the localhost:43102 fixture pin was CLOSED BY
+  REPLACEMENT (fenix 2026-09-04 — replaced with host's own cert on 43101 per
+  Rand's ruling; see C4). Still held, awaits Rand: roster row fx-at3/fx-at3-beta
+  (added 2026-08-31 ~21:35Z, untouched since).
 
 ## C1 — no host hermes agent talks to the container
 
@@ -67,14 +68,21 @@ A–D+D7 + AT0–AT8 against the current candidate (1.4.13 content).
 
 ## C4 — remove host localhost trust entry + fx-at3 cleanup
 
-- [ ] `atm peer trust revoke localhost` (the 4E7B... pin at 43102).
-- [ ] Delete roster row fx-at3/fx-at3-beta.
-- [ ] Verify host `.localhost` self-sends no longer shadow (send
-  loki@hermes.localhost test).
-- Owner: loki executes (my state), gated on Rand's ruling via team-lead.
-  fenix holds until then. NOTE: rand-m5 daemon restart may be required
-  (trust pins bake at daemon bootstrap — MtlsPeerStreamAdapter::from_peer_config,
-  no reload path; restart = fenix via /daemon-switch per Rand's delegation).
+STATUS CHANGED (fenix 2026-09-04): my item (1) — the localhost:43102 fixture
+pin — is CLOSED BY REPLACEMENT. Rand ruled localhost on rand-m5 should carry
+a trust key; fenix replaced my container pin with the host daemon's OWN
+certificate on 43101 (fp BFCA33B6..., = the rand-m5.local pin) and did a
+managed daemon restart (host daemon now 1.4.13 from develop, pid 13296).
+- [x] localhost fixture pin gone (replaced — verified read-only 2026-09-04)
+- [ ] Delete roster row fx-at3/fx-at3-beta — STILL HELD, awaits Rand's ruling
+- [ ] Verify host `.localhost` self-sends behave under the new localhost key
+      (loki's self-send nudge test) — do NOT dial container through localhost:
+      with the host's own cert pinned there, container-bound sends must use
+      the named hermes-testbed.local entry (C3), never localhost.
+- Owner: loki executes the roster deletion on ruling; fenix owns host daemon.
+  NOTE: trust pins bake at daemon bootstrap (MtlsPeerStreamAdapter::
+  from_peer_config, no reload path) — fenix's managed restart already covered
+  it for his replacement; any future pin change needs the same.
 
 ## C5 — fenix sequences machine time
 
