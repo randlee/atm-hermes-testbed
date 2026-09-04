@@ -198,6 +198,8 @@ v1.4.6 cycle (cut once the AT3 `--peer` leg lands). Details in
 ## Key paths
 - Project: `~/Documents/github/atm-hermes-testbed/`
 - Fork source (build context, read-only): `~/Documents/github/hermes-agent-randlee`
-- Wheelhouse: `~/.hermes/wheelhouse/` (hermes_atm-1.4.2 py3-none-any)
+- Wheelhouse: `~/.hermes/wheelhouse/` — **retired 2026-09-04** (all wheels moved
+  to `superseded-20260904/`); testbed wheels come from prerelease CI artifacts
+  via `WHEELS_DIR` (mandatory). Host runs hermes-atm ≥1.4.11 — never revert.
 - atm release: github.com/randlee/atm-core/releases (v1.4.3, linux x86_64)
 - herdr release: github.com/herdrdev/herdr/releases (v0.8.2, linux x86_64/aarch64)

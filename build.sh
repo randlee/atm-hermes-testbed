@@ -9,7 +9,7 @@ set -eu
 HERE="$(cd "$(dirname "$0")" && pwd)"
 FORK=~/Documents/github/hermes-agent-randlee
 FORK_WT=~/Documents/github/hermes-agent-randlee-worktrees/testbed-build
-WHEELHOUSE=~/.hermes/wheelhouse
+# (wheelhouse retired 2026-09-04 — wheels via WHEELS_DIR only)
 
 # ── Platform switch (AR: #1097 ships a native aarch64 tarball from 1.4.6 on) ──
 # TESTBED_PLATFORM=amd64 (default; qemu emulation on Apple Silicon)
@@ -34,9 +34,11 @@ case "$ATM_ARCH" in
   x86_64)  HERDR_SHA256_PREFIX=976150a1 ;;
   aarch64) HERDR_SHA256_PREFIX=f5561065 ;;
 esac
-HERMES_ATM_WHEEL="$WHEELHOUSE/hermes_atm-1.4.2-py3-none-any.whl"
-ATM_GRAFT_WHEEL="atm_graft-1.4.3-cp311-abi3-${GRAFT_WHL_ARCH}.whl"
-ATM_GRAFT_URL="https://test.pypi.org/packages/$(curl -fsSL https://test.pypi.org/pypi/atm-graft/1.4.3/json | python3 -c "import json,sys; d=json.load(sys.stdin); print([u['url'] for u in d['urls'] if '$GRAFT_WHL_ARCH' in u['filename']][0].split('/packages/')[1])")"
+# Wheelhouse retired 2026-09-04 (host is on hermes-atm >=1.4.11, never revert):
+# no default wheel anymore — WHEELS_DIR (prerelease CI artifact) is mandatory.
+HERMES_ATM_WHEEL=""
+ATM_GRAFT_WHEEL=""
+# (TestPyPI graft fallback retired with the wheelhouse — WHEELS_DIR supplies both)
 
 # ── Pre-release override contract (fenix@atm-dev AR integration, 2026-08-28) ──
 # ATM_TARBALL=<path>   — use a pre-release atm linux-x86_64 tarball (e.g. the
@@ -79,8 +81,10 @@ fetch_assets() {
     ATM_GRAFT_WHEEL="$(basename "$(ls atm_graft-*.whl | head -1)")"
     echo "wheels override: $HERMES_ATM_WHEEL, $ATM_GRAFT_WHEEL"
   else
-    [ -f "$(basename "$HERMES_ATM_WHEEL")" ] || cp "$HERMES_ATM_WHEEL" .
-    [ -f "$ATM_GRAFT_WHEEL" ] || curl -fsSL -o "$ATM_GRAFT_WHEEL" "$ATM_GRAFT_URL"
+    echo "FATAL: no wheels source. The wheelhouse default was retired 2026-09-04"
+    echo "  (host hermes-atm is >=1.4.11; never revert). Provide WHEELS_DIR=<dir>"
+    echo "  containing the prerelease CI hermes_atm/atm_graft wheels."
+    exit 1
   fi
 
   if [ ! -f "$HERDR_ARCHIVE" ]; then
