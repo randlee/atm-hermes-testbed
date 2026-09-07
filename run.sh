@@ -77,7 +77,7 @@ docker exec "$NAME" sh -c '[ -x /opt/testbed/harness/setup-mtls.sh ] && /opt/tes
   2>&1 | tail -2 || true
 docker logs "$NAME" 2>&1 | head -20
 echo "---"
-docker exec "$NAME" sh -c 'hermes --version | head -1; atm-daemon --version; herdr --version' 2>&1 | head -3
+docker exec "$NAME" sh -c 'hermes --version 2>/dev/null; atm-daemon --version; herdr --version' 2>&1 | grep -vE '^(Install|$)' | head -4
 
 if [ -n "$PEER" ]; then
   # Cross-host peer trust, both directions, every start. Nothing manual is left
