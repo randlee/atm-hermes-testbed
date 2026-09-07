@@ -114,6 +114,14 @@ def run_test(name: str, fn, suffix: str) -> None:
 # ---------------- tests ----------------
 
 def a1_send_read_history(team: str) -> None:
+    """suite/v2 per arch-ctm ruling (ADR-059 + requirements 7.13, relayed by
+    solar@atm-dev 01M1WXG7TYNN09NWDJEVEKZPGS): mutation_applied=true means
+    the read/seen transition was ACCEPTED by the supervised non-blocking
+    handoff — not yet durable or visible. Bare read and --message-id share
+    prepare_async_read/complete_async_read; observed differences were
+    scheduling. GENERAL RULE for all suite read-state assertions: assert
+    acceptance synchronously, assert durability by bounded polling — never
+    require read==true in the immediate read response."""
     alpha, beta = f"alpha-{team}", f"beta-{team}"
     ensure_roster(team, [alpha, beta])
     d = atm_json(["send", alpha, "A1-PAYLOAD", "--json"], beta, team)
@@ -122,12 +130,29 @@ def a1_send_read_history(team: str) -> None:
     d = atm_json(["list", alpha, "--json"], alpha, team)
     assert counts(d) == {"unread": 1, "pending_ack": 0, "history": 0}, counts(d)
     assert d["rows"][0]["message_id"] == mid
+    # ACCEPTANCE (synchronous contract): handoff accepted the actionable read.
     d = atm_json(["read", "--json"], alpha, team)
+    assert d["mutation_applied"] is True, d
+    assert d["selection_mode"] == "actionable", d
     m = d["message"]
-    assert m["message_id"] == mid and m["read"] is True, m
+    assert m["message_id"] == mid, m
     assert m["text"] == "A1-PAYLOAD", m["text"]
-    d = atm_json(["list", alpha, "--json"], alpha, team)
-    assert counts(d)["history"] == 1 and counts(d)["unread"] == 0, counts(d)
+    # DURABILITY (bounded poll): the accepted transition becomes visible —
+    # unread drains to 0 and history reaches 1. Deadline 15s (handoff is
+    # non-blocking; observed settlement is sub-second on native arm64).
+    deadline = time.time() + 15.0
+    last = {"unread": -1, "history": -1}
+    while time.time() < deadline:
+        d = atm_json(["list", alpha, "--json"], alpha, team)
+        last = counts(d)
+        if last["history"] == 1 and last["unread"] == 0:
+            break
+        time.sleep(0.25)
+    else:
+        raise AssertionError(
+            f"read accepted (mutation_applied=true) but never became durable "
+            f"within 15s: {last}")
+    assert last["history"] == 1 and last["unread"] == 0, last
 
 
 def a2_pending_ack_lifecycle(team: str) -> None:
@@ -253,24 +278,12 @@ def a8_body_fidelity(team: str) -> None:
     assert m["requires_ack"] is False
 
 
-# suite/v2 HELD set (fenix authorization relayed by solar@atm-dev,
-# 01M1WXB6J117BP8HAH2HSXRZ17): tests whose EXPECTATION must not change and
-# whose verdict must not be FAIL until an upstream owner rules. A1 is held
-# pending arch-ctm disposition of the bare-`atm read` mutation_applied
-# semantics (possible atm-core regression vs intended Phase AN/AV behavior).
-# The a1_send_read_history body is preserved VERBATIM for arch-ctm to review;
-# it is simply not invoked here — recorded as skip with a HELD reason so the
-# tier verdict is not FAIL and the row is reported as HELD, not FAIL.
-HELD_TESTS = {
-    "A1-send-read-history": (
-        "HELD pending arch-ctm disposition: bare `atm read` "
-        "(selection_mode=actionable) returns mutation_applied=True but does "
-        "not persist the read mark (stays unread in `atm list`); explicit "
-        "`atm read --message-id` does persist. Internal inconsistency under "
-        "review as possible atm-core regression vs intended AV non-blocking "
-        "handoff / no-read-your-writes. Expectation untouched; not rerun."
-    ),
-}
+# suite/v2 HELD set: tests whose EXPECTATION must not change and whose
+# verdict must not be FAIL until an upstream owner rules. Currently EMPTY —
+# A1's hold was RELEASED (arch-ctm ruling via solar 01M1WXG7TYNN09NWDJEVEKZPGS:
+# mutation_applied=true means handoff ACCEPTED, not durable; A1 rewritten to
+# assert acceptance + bounded durability poll per ADR-059/req 7.13).
+HELD_TESTS: dict[str, str] = {}
 
 
 def main() -> int:

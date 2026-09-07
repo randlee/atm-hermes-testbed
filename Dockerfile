@@ -76,6 +76,8 @@ COPY prompts /opt/testbed/prompts
 COPY --chmod=0755 testbed/harness/run-prompts.sh /opt/testbed/harness/run-prompts.sh
 COPY --chmod=0755 testbed/harness/restart-daemon.sh /opt/testbed/harness/restart-daemon.sh
 COPY --chmod=0755 testbed/harness/freeze-daemon.sh /opt/testbed/harness/freeze-daemon.sh
+COPY --chmod=0755 testbed/harness/at8-calibrate.sh /opt/testbed/harness/at8-calibrate.sh
+COPY --chmod=0755 testbed/harness/test-at8-calibrate.sh /opt/testbed/harness/test-at8-calibrate.sh
 COPY --chmod=0755 testbed/harness/install-claude-code.sh /opt/testbed/harness/install-claude-code.sh
 COPY --chmod=0755 testbed/harness/setup-mtls.sh /opt/testbed/harness/setup-mtls.sh
 

@@ -70,6 +70,14 @@ case "$ID" in
     mkdir -p /opt/testbed/at1
     ;;
   AT8)
+    # HGC-023 suite-start stale-marker cleanup (fenix 01M1WXW9R9Z7KH69CDVR4F6122):
+    # at8-rtt joins at8-ready/armed/done/trigger — a stale calibration marker
+    # would arm Phase B with a previous run's delay.
+    rm -f /opt/testbed/results/markers/at8-rtt \
+          /opt/testbed/results/markers/at8-ready \
+          /opt/testbed/results/markers/at8-armed \
+          /opt/testbed/results/markers/at8-done \
+          /opt/testbed/results/markers/at8-trigger
     atm teams add fx-at8 >/dev/null 2>&1 || true
     ATM_IDENTITY=fx-at8-alpha ATM_TEAM=fx-at8 atm teams add-member fx-at8 fx-at8-alpha \
       --agent-type stub --home-dir /opt/testbed/at8 >/dev/null 2>&1 || true

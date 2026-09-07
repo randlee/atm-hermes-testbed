@@ -99,14 +99,32 @@ class`), in the v1.5.3 tag. It changed the built-in nudge templates in
   reachable, backendType=herdr persisted), never ULID presence in the
   obsolete log shape.
 
-**HELD (not changed, not rerun):**
-- **A1-send-read-history:** held pending arch-ctm disposition of the
-  bare-`atm read` `mutation_applied` semantics (bare read reports
-  `mutation_applied=True` but does not persist the read mark; explicit
-  `--message-id` does). The A1 expectation body is preserved **verbatim**; the
-  runner records it as a HELD skip so the tier verdict is not FAIL and the row
-  reports HELD, not FAIL. Resolves to suite/v2 expectation update OR an
-  atm-core fix depending on the ruling.
+**A1 — HOLD RELEASED, expectation repaired per ruling (arch-ctm via fenix,
+solar relay 01M1WXG7TYNN09NWDJEVEKZPGS):** bare-`atm read` returning
+`mutation_applied=true` without an immediately visible read mark is INTENDED
+— `mutation_applied` means the read/seen transition was ACCEPTED by the
+supervised non-blocking handoff, not yet durable. Bare read and
+`--message-id` share `prepare_async_read`/`complete_async_read`; the observed
+difference was scheduling, not semantics. Attribution: **ADR-059 +
+requirements 7.13** (arch-ctm docs/tests PR: TBD — to be added when fenix
+supplies the number). A1 now asserts acceptance synchronously
+(`mutation_applied=true`, `selection_mode=actionable`, matching
+`message_id`) and durability by bounded poll of `atm list --json` until
+`unread==0 && history==1` (15s deadline); it never requires
+`message.read==true` in the immediate response. **General rule adopted for
+ALL suite read-state assertions: assert accepted-vs-durable separately.**
+
+**HGC-023 (AT8 RTT calibration marker, fenix-authorized
+01M1WXW9R9Z7KH69CDVR4F6122):** AT8 step 2's `warmup_rtt_ms` had no path to
+the outer coordinator before step 9 needs the calibrated `--after`. Repair:
+agent writes sanitized integer marker `markers/at8-rtt` (ASCII digits +
+newline only) after warm-up; coordinator waits ≤120s, validates
+`^[0-9]+$`/1..60000 (missing/invalid = FAIL, never default/tune/retry),
+computes `after_ms=clamp((rtt+1)/2, 300, 1500)`, runs
+`freeze-daemon.sh 4 --after <after_ms> --source-rtt <rtt> --trigger ...`;
+`at8-armed` records UTC + `after_ms` + `source_rtt_ms`; `at8-rtt` joins the
+suite-start stale-marker cleanup. Attribution: testbed/prompts only, never
+atm-core.
 
 Prompt-side note: no `prompts/` content changed in suite/v2 (the AT4/AT8
 no-sudo marker rewrite landed earlier at fb9d63c under suite/v1 with a

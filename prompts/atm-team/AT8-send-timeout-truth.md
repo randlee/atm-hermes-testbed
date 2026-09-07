@@ -55,8 +55,10 @@ coordinator (root `docker exec` of /opt/testbed/harness/freeze-daemon.sh —
 you never invoke it and never use sudo; the client's absolute request budget
 in this fixture is 3.25s). You coordinate via marker files under
 /opt/testbed/results/markers/ (writable by you): `at8-armed` appears when the
-hook is watching (contents: UTC ISO timestamp + the chosen after_ms),
-`at8-done` appears after the daemon is resumed. For Phase B the hook also
+hook is watching (contents: UTC ISO timestamp + `after_ms=<computed>` +
+`source_rtt_ms=<validated>` when calibrated), `at8-done` appears after the
+daemon is resumed, and `at8-rtt` is YOURS to write (step 2, HGC-023
+calibration export). For Phase B the hook also
 watches a TRIGGER file: touching it starts the `--after` delay on YOUR
 timing. Your default identity is `fx-at8-alpha`.
 
@@ -71,9 +73,18 @@ Steps:
    fx-at8-beta "AT8-WARMUP" --team fx-at8`. Exit code 0 — confirms the daemon
    is healthy before inducing any freeze. ALSO measure this send's wall-clock
    RTT in milliseconds (e.g. wrap with date +%s%3N before/after, or
-   `time`) and record it in `detail` as `warmup_rtt_ms`. The coordinator
-   arms Phase B with `--after` ≈ half your measured accept latency (floor
-   300ms, ceiling 1500ms); your RTT is that calibration input.
+   `time`) and record it in `detail` as `warmup_rtt_ms`. Then EXPORT the
+   calibration to the coordinator (HGC-023): the measured value must be a
+   plain integer (milliseconds, 1..60000 — if your timing tool produced a
+   non-integer, round it; if the send failed or the value is out of range,
+   record step status "fail" with reason "rtt calibration invalid" and
+   stop). Write it with EXACTLY this file contract — ASCII digits plus a
+   trailing newline, nothing else:
+   `printf '%s\n' "$warmup_rtt_ms" > /opt/testbed/results/markers/at8-rtt`
+   The coordinator waits (bounded) for this marker, validates it
+   (^[0-9]+$, 1..60000), and arms Phase B with `--after` =
+   clamp((rtt+1)/2, 300, 1500) — your marker is the ONLY calibration
+   input; the prompt never chooses or defaults the delay.
 
    --- Phase A: freeze BEFORE the send (expected branch (a), write lost) ---
 3. Phase-A arm: poll until `/opt/testbed/results/markers/at8-armed` exists
@@ -105,12 +116,16 @@ Steps:
 
    --- Phase B: freeze AFTER the send starts (expected branch (b), landed) ---
 9. Phase-B arm: poll until `/opt/testbed/results/markers/at8-armed` exists
-   AGAIN (the coordinator has re-launched the hook out of band with
-   `--after <calibrated-ms> --trigger /opt/testbed/results/markers/at8-trigger`;
-   the hook clears both markers when it re-arms, so wait for the FRESH
-   at8-armed — bound 60s). Record the marker contents in `detail`: the UTC
-   timestamp AND `after_ms=<value>` (the coordinator's calibrated delay,
-   derived from your step-2 warmup RTT).
+   AGAIN (the coordinator read your `at8-rtt` marker, validated it, computed
+   `after_ms=clamp((rtt+1)/2,300,1500)`, and re-launched the hook out of
+   band with `--after <after_ms> --source-rtt <your rtt> --trigger
+   /opt/testbed/results/markers/at8-trigger`; the hook clears both markers
+   when it re-arms, so wait for the FRESH at8-armed — bound 60s). Record
+   the marker contents in `detail`: the UTC timestamp, `after_ms=<value>`
+   AND `source_rtt_ms=<value>` (your step-2 RTT as validated by the
+   coordinator). You never choose or default the delay — if at8-armed lacks
+   after_ms/source_rtt_ms, record step status "fail" with reason
+   "calibrated arm marker incomplete".
 10. Phase-B timeout send: `touch /opt/testbed/results/markers/at8-trigger`
     && IMMEDIATELY (same shell line, &&-chained) run
     `ATM_IDENTITY=fx-at8-alpha atm send fx-at8-beta "AT8-PHASE-B" --team

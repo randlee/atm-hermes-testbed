@@ -73,18 +73,39 @@ docker exec hermes-testbed /opt/testbed/harness/run-prompts.sh AT0   # … AT1..
     them OUT OF BAND via root-default
     `docker exec hermes-testbed /opt/testbed/harness/<hook>`; the unprivileged
     fixture agent never execs a hook — it coordinates through marker files
-    under `/opt/testbed/results/markers/` (chowned to the agent):
+    under `/opt/testbed/results/markers/` (chowned to the agent).
+    Expected-marker table (writer → reader → content → lifecycle):
+
+    | marker | writer | reader | content | lifecycle |
+    |--------|--------|--------|---------|-----------|
+    | `at4-ready` | fixture agent | coordinator (`restart-daemon.sh`) | touch only | cleared at suite start + hook arm |
+    | `at4-done` | coordinator hook | fixture agent (poll) | UTC ISO ts | written post-restart |
+    | `at8-rtt` | fixture agent (AT8 step 2) | coordinator (`at8-calibrate.sh`) | ASCII integer RTT ms + newline ONLY | cleared at suite start; HGC-023 |
+    | `at8-armed` | coordinator hook | fixture agent (poll) | UTC ts + `after_ms=<n>` + `source_rtt_ms=<n>` | cleared at hook arm |
+    | `at8-trigger` | fixture agent (step 10, &&-chained before send) | coordinator hook | touch only | cleared at suite start + hook arm |
+    | `at8-done` | coordinator hook | fixture agent (poll) | UTC ISO ts | written post-SIGCONT |
+
     - AT4: agent `touch markers/at4-ready` → hook restarts daemon →
       `markers/at4-done` (UTC ISO content); agent polls, then post-restart sends.
-    - AT8 branch (b): hook armed with `--trigger markers/at8-trigger
-      --after 300`; agent `touch`es the trigger &&-chained immediately before
-      its send, so the 300ms delay starts at agent-owned trigger time
-      (persist-then-freeze, reply past the 3.25s budget). `markers/at8-armed`
-      / `markers/at8-done` bound the window.
-    - Coordinator clears stale markers (`at4-ready`, `at8-trigger`) before a
-      run; hooks also clear their own at arm time.
-    - AT4/AT8 prompt text update to the marker protocol is pending fenix's
-      sign-off (prompts/atm-team/ is his lane; drafts sent 2026-09-07).
+    - AT8 branch (b), HGC-023 calibrated flow (fenix 01M1WXW9R9Z7KH69CDVR4F6122):
+      agent measures warmup RTT (step 2) and writes the sanitized integer to
+      `markers/at8-rtt`; coordinator runs `harness/at8-calibrate.sh` (bounded
+      wait ≤120s, validates `^[0-9]+$` range 1..60000, computes
+      `after_ms=clamp((rtt+1)/2, 300, 1500)`; missing/invalid = FAIL
+      "calibration marker missing/invalid", never default/tune/retry), then
+      Phase A `freeze-daemon.sh 4`, then Phase B `freeze-daemon.sh 4
+      --after <after_ms> --source-rtt <rtt> --trigger markers/at8-trigger`.
+      The hook fail-closes on invalid args (after requires source-rtt;
+      after ∈ 300..1500; rtt ∈ 1..60000) BEFORE any signal. Agent touches
+      the trigger &&-chained immediately before its send, so the calibrated
+      delay starts at agent-owned trigger time (persist-then-freeze, reply
+      past the 3.25s budget). Deterministic helper tests:
+      `harness/test-at8-calibrate.sh` (host-runnable; 19 cases).
+    - Coordinator clears stale markers (`at4-ready`, `at8-rtt`,
+      `at8-trigger`) before a run (run-prompts.sh AT8 case does this);
+      hooks also clear their own at arm time.
+    - AT4/AT8 prompt text is UPDATED to this protocol (fenix sign-off +
+      HGC-023 draft 01M1WXZXVH1A178ARNNQE3NX72 applied 2026-09-07).
   - daemon kills use exact `pkill -x atm-daemon` (never `-f` — the agent's own
     argv contains the prompt text and `-f` self-killed AT4);
   - `restart-daemon.sh` deletes stale `local-http.json` BEFORE relaunch and
