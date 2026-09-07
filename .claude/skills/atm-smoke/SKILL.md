@@ -36,8 +36,9 @@ is required. Run-id = current unix time, used in your one-line body.
 6. **Stale-connection probe.** Do nothing for 5 s, then list. Observable: exit or error code; FAIL on
    `MAY_HAVE_EXECUTED`, `RequestWrite`, or a connection error.
 7. **Ack.** Ack B with reply `atm-smoke ack <run-id>`. Observable: exit or error code.
-8. **Your message got acked.** Within 120 s, `atm list --pending-ack --json` (native: list) no longer
-   shows A, and the partner's ack reply is in your unread list. Observable: seconds, or timeout.
+8. **Your message got acked.** Within 120 s the partner's ack reply (from the partner, containing
+   `atm-smoke ack <run-id>`) appears in your unread list; read it. Observable: seconds, or timeout.
+   (`atm list --pending-ack` shows what *you* still owe, so it is not the observable here.)
 
 ## Report
 
