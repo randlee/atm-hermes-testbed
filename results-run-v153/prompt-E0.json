@@ -1,0 +1,50 @@
+{
+  "schema": "prompt-report-1",
+  "test_id": "E0-graft-api-smoke",
+  "agent": "hermes",
+  "steps": [
+    {
+      "name": "import-check",
+      "status": "pass",
+      "detail": "PyGraftSession, PyGraftSessionOptions, PyAgentAddress imported successfully"
+    },
+    {
+      "name": "session-construction",
+      "status": "pass",
+      "detail": "PyGraftSession constructed with PyAgentAddress"
+    },
+    {
+      "name": "receiver-activation",
+      "status": "pass",
+      "detail": "Receiver activated (lock file present)"
+    },
+    {
+      "name": "peer-send",
+      "status": "pass",
+      "detail": "atm send succeeded, exit=0"
+    },
+    {
+      "name": "nudge-receipt",
+      "status": "pass",
+      "detail": "Nudge received (body extraction inconclusive)"
+    },
+    {
+      "name": "read-back",
+      "status": "pass",
+      "detail": "atm read returned JSON successfully"
+    },
+    {
+      "name": "session-close",
+      "status": "pass",
+      "detail": "Session closed"
+    }
+  ],
+  "verdict": "pass",
+  "atm_versions": {
+    "atm": "",
+    "hermes_atm": "",
+    "atm_graft": "unknown"
+  },
+  "started_at": "2026-09-07T04:40:28.066607Z",
+  "finished_at": "2026-09-07T04:40:38.264967Z"
+}

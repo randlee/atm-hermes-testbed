@@ -1,0 +1,45 @@
+{
+  "schema": "prompt-report-1",
+  "test_id": "AT4-daemon-restart-in-session",
+  "agent": "claude-code",
+  "steps": [
+    {
+      "name": "harness-hook-precondition",
+      "status": "skip",
+      "detail": "marker dir not writable; uid=10000 (non-root); sudo absent"
+    },
+    {
+      "name": "pre-restart-baseline",
+      "status": "skip",
+      "detail": "marker dir missing"
+    },
+    {
+      "name": "restart-triggered",
+      "status": "skip",
+      "detail": "marker dir missing"
+    },
+    {
+      "name": "post-restart-send",
+      "status": "skip",
+      "detail": "marker dir missing"
+    },
+    {
+      "name": "post-restart-read",
+      "status": "skip",
+      "detail": "marker dir missing"
+    },
+    {
+      "name": "no-loss-no-duplication",
+      "status": "skip",
+      "detail": "marker dir missing"
+    }
+  ],
+  "verdict": "skip",
+  "atm_versions": {
+    "atm": "",
+    "hermes_atm": "",
+    "atm_graft": ""
+  },
+  "started_at": "2026-09-07T00:00:00Z",
+  "finished_at": "2026-09-07T00:00:00Z"
+}

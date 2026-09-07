@@ -1,0 +1,85 @@
+{
+  "schema": "prompt-report-1",
+  "test_id": "AT8-send-timeout-truth",
+  "agent": "claude-code",
+  "steps": [
+    {
+      "name": "harness-hook-precondition",
+      "status": "fail",
+      "detail": "marker dir missing: /opt/testbed/results/markers does not exist. uid=10000 (not root). sudo absent."
+    },
+    {
+      "name": "warm-up-send",
+      "status": "skip",
+      "detail": "skipped due to marker dir missing"
+    },
+    {
+      "name": "phase-a-freeze-before-send",
+      "status": "skip",
+      "detail": "skipped due to marker dir missing"
+    },
+    {
+      "name": "phase-a-timeout-send-observed",
+      "status": "skip",
+      "detail": "skipped due to marker dir missing"
+    },
+    {
+      "name": "phase-a-freeze-completed",
+      "status": "skip",
+      "detail": "skipped due to marker dir missing"
+    },
+    {
+      "name": "phase-a-log-truth-check",
+      "status": "skip",
+      "detail": "skipped due to marker dir missing"
+    },
+    {
+      "name": "phase-a-retry-decision",
+      "status": "skip",
+      "detail": "skipped due to marker dir missing"
+    },
+    {
+      "name": "phase-a-exactly-one-copy",
+      "status": "skip",
+      "detail": "skipped due to marker dir missing"
+    },
+    {
+      "name": "phase-b-freeze-after-send-start",
+      "status": "skip",
+      "detail": "skipped due to marker dir missing"
+    },
+    {
+      "name": "phase-b-timeout-send-observed",
+      "status": "skip",
+      "detail": "skipped due to marker dir missing"
+    },
+    {
+      "name": "phase-b-freeze-completed",
+      "status": "skip",
+      "detail": "skipped due to marker dir missing"
+    },
+    {
+      "name": "phase-b-log-truth-check",
+      "status": "skip",
+      "detail": "skipped due to marker dir missing"
+    },
+    {
+      "name": "phase-b-no-retry-decision",
+      "status": "skip",
+      "detail": "skipped due to marker dir missing"
+    },
+    {
+      "name": "phase-b-exactly-one-copy",
+      "status": "skip",
+      "detail": "skipped due to marker dir missing"
+    }
+  ],
+  "verdict": "skip",
+  "atm_versions": {
+    "atm": "1.5.3",
+    "hermes_atm": "unavailable",
+    "atm_graft": "unavailable"
+  },
+  "started_at": "2026-09-07T04:49:16Z",
+  "finished_at": "2026-09-07T04:49:16Z"
+}

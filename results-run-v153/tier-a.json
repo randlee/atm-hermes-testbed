@@ -2,17 +2,17 @@
   "schema": 1,
   "tier": "A",
   "suite": "mailbox-semantics",
-  "verdict": "fail",
+  "verdict": "pass",
   "counts": {
-    "pass": 7,
-    "fail": 1,
+    "pass": 8,
+    "fail": 0,
     "skip": 0
   },
   "tests": [
     {
       "name": "A1-send-read-history",
-      "status": "fail",
-      "detail": "{'bucket': 'unread', 'class': 'unread', 'from': 'beta-A1-send-read-history-1788749270', 'text': 'A1-PAYLOAD', 'timestamp': '2026-09-07T02:47:50.091330970Z', 'read': False, 'source_team': 'A1-send-read-history-1788749270', 'summary': 'A1-PAYLOAD', 'message_id': '01M1WW7K2BSKTKQ03EM2B2ZJC0', 'requires_ack': False}"
+      "status": "pass",
+      "detail": null
     },
     {
       "name": "A2-pending-ack-lifecycle",
@@ -55,11 +55,11 @@
     "hermes_atm": "1.5.3",
     "atm_graft": "1.5.3",
     "herdr": "herdr 0.8.2",
-    "hermes_fork": "unknown"
+    "hermes_fork": "d45230aac599d3db6a24404eba4fa2f04e030004"
   },
   "provenance": {
-    "atm_core_sha": "",
-    "ci_run_id": "",
+    "atm_core_sha": "9654b75f1710d7155fb3a6584ee709314c1642d5",
+    "ci_run_id": "34074006538",
     "artifacts": [
       {
         "name": "atm_1.5.3_aarch64-unknown-linux-gnu.tar.gz",
@@ -77,18 +77,21 @@
   },
   "daemon": {
     "client_version": "1.5.3",
-    "daemon_version": "1.5.3",
-    "doctor_status": "healthy"
+    "daemon_version": "unknown",
+    "doctor_status": "healthy",
+    "doctor_findings": {
+      "info/ATM_OBSERVABILITY_HEALTH_OK": 1
+    }
   },
   "image": {
     "tag": "loki/hermes-testbed:testbed",
-    "digest": "unknown"
+    "digest": "sha256:5d46dfbc0f90460306673bf624013f11c4402ce7b48f91fd23f87eb1fbe8b9ee"
   },
   "host": {
     "platform": "aarch64",
     "emulation": "native"
   },
-  "started_at": "2026-09-07T02:47:50Z",
-  "finished_at": "2026-09-07T02:47:51Z",
-  "duration_ms": 1262
+  "started_at": "2026-09-07T04:37:52Z",
+  "finished_at": "2026-09-07T04:37:55Z",
+  "duration_ms": 3116
 }

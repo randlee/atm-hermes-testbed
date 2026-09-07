@@ -1,0 +1,18 @@
+{
+  "schema": "prompt-report-1",
+  "test_id": "AT6-template-task-dispatch",
+  "agent": "claude-code",
+  "steps": [
+    {"name": "template-authored", "status": "pass", "detail": "YAML frontmatter and Jinja2 template body created at /opt/testbed/at6/at6-task.xml.j2"},
+    {"name": "compose-preview-rendered", "status": "pass", "detail": "Variables AT6-TASK-1 and 'reply PASS or FAIL over ATM' correctly substituted; no raw {{ }} placeholders"},
+    {"name": "template-send-dispatched", "status": "pass", "detail": "atm send --template with --task-id AT6-TASK-1 succeeded; message_id: 01M1X2XW2B2HWC2RMAMSB5YNGF"},
+    {"name": "receiver-rendering-verified", "status": "pass", "detail": "fx-at6-beta received fully rendered message with AT6-TASK-1 and task description; requires_ack=true; taskId set correctly"},
+    {"name": "ack-sent", "status": "pass", "detail": "atm ack 01M1X2XW2B2HWC2RMAMSB5YNGF succeeded; reply sent to fx-at6-alpha (01M1X2Y1H5HVAZ1935F5FJ52SQ)"},
+    {"name": "pass-fail-report-sent", "status": "pass", "detail": "atm send 'task complete: AT6-TASK-1 PASS' succeeded; message_id: 01M1X2Y425APSJM9YR8AHCKY38"},
+    {"name": "sender-history-confirmed", "status": "pass", "detail": "fx-at6-alpha history shows both ack reply and PASS/FAIL completion message; match_count=2 confirms multiple messages"}
+  ],
+  "verdict": "pass",
+  "atm_versions": {"atm": "1.5.3", "hermes_atm": "unknown", "atm_graft": "unknown"},
+  "started_at": "2026-09-07T04:44:51Z",
+  "finished_at": "2026-09-07T04:44:59Z"
+}

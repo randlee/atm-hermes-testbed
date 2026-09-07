@@ -1,0 +1,45 @@
+{
+  "schema": "prompt-report-1",
+  "test_id": "AT0-ack-discipline",
+  "agent": "claude-code",
+  "steps": [
+    {
+      "name": "task-envelope-sent",
+      "status": "pass",
+      "detail": "Task envelope sent from fx-at0-alpha to fx-at0-beta with requires_ack flag and task_id AT0-TASK-1. Message ID: 01M1X2QQCQSKEEP3BWNXXRCK26"
+    },
+    {
+      "name": "envelope-received",
+      "status": "pass",
+      "detail": "Message received by fx-at0-beta in pending_ack bucket with requires_ack=true and taskId=AT0-TASK-1. Message ID matches sent: 01M1X2QQCQSKEEP3BWNXXRCK26"
+    },
+    {
+      "name": "ack-sent",
+      "status": "pass",
+      "detail": "ACK message sent from fx-at0-beta to fx-at0-alpha with text 'ack, working on AT0-TASK-1'. ACK message ID: 01M1X2QXC3B22G6R2SHJ6H0BBV. Timestamp: 2026-09-07T04:41:36.387717799Z"
+    },
+    {
+      "name": "trivial-task-done",
+      "status": "pass",
+      "detail": "File /opt/testbed/at0/at0-proof.txt created with exact content 'at0-ok'"
+    },
+    {
+      "name": "completion-sent",
+      "status": "pass",
+      "detail": "Completion message sent from fx-at0-beta to fx-at0-alpha with text 'task complete: AT0-TASK-1 done, wrote at0-proof.txt'. Message ID: 01M1X2R2Y55HN84T5Q36YHSWTG. Timestamp: 2026-09-07T04:41:42.085818993Z"
+    },
+    {
+      "name": "sender-history-order",
+      "status": "pass",
+      "detail": "Sender (fx-at0-alpha) history shows both ACK and completion messages in strict temporal order. ACK timestamp (04:41:36.387717799Z) strictly precedes completion timestamp (04:41:42.085818993Z). Both messages visible in sender's mailbox history."
+    }
+  ],
+  "verdict": "pass",
+  "atm_versions": {
+    "atm": "1.5.3",
+    "hermes_atm": "unknown",
+    "atm_graft": "unknown"
+  },
+  "started_at": "2026-09-07T04:41:30.263805598Z",
+  "finished_at": "2026-09-07T04:41:42.085818993Z"
+}

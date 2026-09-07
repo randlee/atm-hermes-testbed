@@ -1,0 +1,45 @@
+{
+  "schema": "prompt-report-1",
+  "test_id": "AT2-queue-vs-steer",
+  "agent": "claude-code",
+  "steps": [
+    {
+      "name": "steer-send",
+      "status": "pass",
+      "detail": "Sent message 'AT2-STEER-1' to fx-at2-beta with exit code 0. Message ID: 01M1X2QQXMCPKJG99YQ1RGAE22"
+    },
+    {
+      "name": "steer-log-evidence",
+      "status": "skip",
+      "detail": "no documented steer-dispatch log event name to assert on. Logs show atm.command send events but do not expose action/dispatch/nudge event names or steer-specific fields."
+    },
+    {
+      "name": "queue-send",
+      "status": "pass",
+      "detail": "Queued message 'AT2-QUEUE-1' to fx-at2-beta with exit code 0. Message ID: 01M1X2VTDH1APSX4C6PAQ3A4Z0"
+    },
+    {
+      "name": "queue-immediate-readability",
+      "status": "pass",
+      "detail": "Queued message AT2-QUEUE-1 (ID: 01M1X2VTDH1APSX4C6PAQ3A4Z0) is durable and readable immediately via atm read --json, confirming AQ1 AC."
+    },
+    {
+      "name": "no-immediate-steer-for-queue",
+      "status": "skip",
+      "detail": "no documented log field distinguishes queue suppression from steer dispatch. Logs show atm.command send for queue operation but do not expose queue-specific suppression markers or dispatch types."
+    },
+    {
+      "name": "no-double-delivery",
+      "status": "pass",
+      "detail": "atm list --all shows exactly 2 messages: AT2-STEER-1 (ID: 01M1X2QQXMCPKJG99YQ1RGAE22) and AT2-QUEUE-1 (ID: 01M1X2VTDH1APSX4C6PAQ3A4Z0), each appearing once. No duplicates."
+    }
+  ],
+  "verdict": "pass",
+  "atm_versions": {
+    "atm": "1.5.3",
+    "hermes_atm": "not available",
+    "atm_graft": "not available"
+  },
+  "started_at": "2026-09-07T04:41:30Z",
+  "finished_at": "2026-09-07T04:43:50Z"
+}

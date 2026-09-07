@@ -1,0 +1,7 @@
+{
+ "status": "healthy",
+ "findings": {
+  "info/ATM_OBSERVABILITY_HEALTH_OK": 1,
+  "info/ATM_RETAINED_DIAGNOSTICS_HEALTH_OK": 1
+ }
+}

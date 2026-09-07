@@ -1,0 +1,45 @@
+{
+  "schema": "prompt-report-1",
+  "test_id": "AT1-addressing-and-routing",
+  "agent": "claude-code",
+  "steps": [
+    {
+      "name": "same-team-send",
+      "status": "pass",
+      "detail": "Same-team send fx-at1-alpha→fx-at1-beta succeeded with exit code 0. Message ID: 01M1X2QSTQ1X7BWPYH0NTAM408"
+    },
+    {
+      "name": "cross-team-send",
+      "status": "fail",
+      "detail": "Cross-team send fx-at1-alpha→fx-at1b-gamma@fx-at1b failed with exit code 3. Error: 'fx-at1b is neither a known local team nor an enabled trusted peer'. Expected exit code 0. Delivery verification could not be completed."
+    },
+    {
+      "name": "unknown-recipient-typed-error",
+      "status": "pass",
+      "detail": "Unknown recipient correctly rejected with exit code 3. Error code: AgentNotFound. Error format: Rust debug format (not JSON structured). Error message: 'agent at1-does-not-exist was not found in team fx-at1'"
+    },
+    {
+      "name": "identity-only-self-send-rejected",
+      "status": "pass",
+      "detail": "Identity-only self-send (fx-at1-alpha→fx-at1-alpha without host) correctly rejected with exit code 3 before dry-run. Error code: SelfAddressedSendInvalid. Error message: 'self-addressed messages are invalid ATM input: fx-at1-alpha@fx-at1 may not send to itself'"
+    },
+    {
+      "name": "host-qualified-self-send-exempted",
+      "status": "pass",
+      "detail": "Host-qualified self-send (fx-at1-alpha→fx-at1-alpha --host localhost --dry-run) was exempted from self-send guard. Failed with exit code 3 for a distinct reason (RemoteDeliveryUnconfirmed: mTLS peer routing issue), not SelfAddressedSendInvalid. This confirms the host qualifier correctly bypasses the self-send guard as documented."
+    },
+    {
+      "name": "help-text-matches-docs",
+      "status": "fail",
+      "detail": "Help text does NOT match documentation wording. Help says: 'Route this send through the explicitly named host... This is wire-equivalent to a host-qualified recipient address.' Docs require: 'qualifies the resolved recipient as agent@team.host'. The help text conveys similar meaning but does not use the exact phrase from docs/atm/commands/send.md"
+    }
+  ],
+  "verdict": "fail",
+  "atm_versions": {
+    "atm": "1.5.3",
+    "hermes_atm": "unavailable",
+    "atm_graft": "unavailable"
+  },
+  "started_at": "2026-09-07T04:39:00Z",
+  "finished_at": "2026-09-07T04:43:09Z"
+}

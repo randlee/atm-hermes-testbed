@@ -1,0 +1,40 @@
+{
+  "schema": "prompt-report-1",
+  "test_id": "AT3-cross-host-roundtrip",
+  "agent": "claude-code",
+  "steps": [
+    {
+      "name": "peer-trust-precondition",
+      "status": "skip",
+      "detail": "no trusted peer configured in this fixture run (--peer mode not active)"
+    },
+    {
+      "name": "cross-host-send",
+      "status": "skip",
+      "detail": "skipped due to failed precondition: no trusted peer"
+    },
+    {
+      "name": "sender-side-ack-wait",
+      "status": "skip",
+      "detail": "skipped due to failed precondition: no trusted peer"
+    },
+    {
+      "name": "receiver-side-ulid-evidence",
+      "status": "skip",
+      "detail": "skipped due to failed precondition: no trusted peer"
+    },
+    {
+      "name": "ack-ulid-correlation",
+      "status": "skip",
+      "detail": "skipped due to failed precondition: no trusted peer"
+    }
+  ],
+  "verdict": "skip",
+  "atm_versions": {
+    "atm": "unknown",
+    "hermes_atm": "unknown",
+    "atm_graft": "unknown"
+  },
+  "started_at": "2026-09-07T04:47:56Z",
+  "finished_at": "2026-09-07T04:47:56Z"
+}
