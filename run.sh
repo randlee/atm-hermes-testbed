@@ -79,7 +79,24 @@ echo "---"
 docker exec "$NAME" sh -c 'hermes --version; atm --version; herdr --version' 2>&1 | head -3
 
 if [ -n "$PEER" ]; then
-  # sshd only runs in peer mode (default runs stay fully walled)
+  # Cross-host peer trust, both directions, every start. Nothing manual is left
+  # except the one-time /etc/hosts line checked at the end.
+  ATM_HOST_FP="$(atm peer certificate show --json | python3 -c 'import json,sys;print(json.load(sys.stdin)["fingerprint"])')"
+  docker exec "$NAME" sh -c "/opt/testbed/harness/setup-peer.sh '$PEER' '$ATM_HOST_FP'" 2>&1 | tail -1
+  ATM_CONTAINER_FP="$(docker exec "$NAME" sh -c 'atm peer certificate show --json' | python3 -c 'import json,sys;print(json.load(sys.stdin)["fingerprint"])')"
+  ATM_PEER_NAME="atm-hermes-testbed.local"
+  if atm peer trust list --json | grep -q "\"$ATM_PEER_NAME\""; then
+    atm peer trust replace --host "$ATM_PEER_NAME" --fingerprint "$ATM_CONTAINER_FP" --https-port "${PEER_HTTP_PORT:-43102}" --yes >/dev/null
+  else
+    atm peer trust add --host "$ATM_PEER_NAME" --fingerprint "$ATM_CONTAINER_FP" --https-port "${PEER_HTTP_PORT:-43102}" --yes >/dev/null
+  fi
+  echo "peer trust: host trusts $ATM_PEER_NAME:${PEER_HTTP_PORT:-43102}; container trusts $PEER"
+  if ! grep -q "$ATM_PEER_NAME" /etc/hosts; then
+    echo "FATAL: /etc/hosts lacks the fixture name. One-time step (needs sudo):"
+    echo "  echo '127.0.0.1 $ATM_PEER_NAME' | sudo tee -a /etc/hosts"
+    exit 1
+  fi
+  # sshd only runs in peer mode (--no-peer runs stay fully walled)
   docker exec "$NAME" sh -c 'mkdir -p /run/sshd && /usr/sbin/sshd' || \
     echo "WARN: sshd failed to start in peer mode"
   # Extract the throwaway peer private key for the Mac's ssh config
