@@ -12,11 +12,15 @@ Tool rule: use the native tool when you have it, otherwise the CLI form. Report 
 
 | step | native (Hermes) | CLI |
 |---|---|---|
-| send | `atm_send(to, body)` | `atm send <to> --stdin <<'EOF' … EOF` |
-| list | `atm_list()` | `atm list --unread --json` |
-| read by id | `atm_read(message_id=<id>)` | `atm read --message-id <id> --json` |
-| peek | `atm_read(message_id=<id>, peek=True)` | `atm peek --message-id <id> --json` |
+| send, ack required | `atm_send(to, body, requires_ack=True)` | `atm send <to> --requires-ack --stdin <<'EOF' … EOF` |
+| list ack-required inbox | `atm_list()` | `atm list --pending-ack --json` (rows carry `read` and `pending_ack`) |
+| list plain inbox | `atm_list()` | `atm list --unread --json` |
+| read by id | `atm_read(message_id=<id>)` | `atm read --message-id <id> --json` (`count`, `mutation_applied`) |
+| peek | `atm_read(message_id=<id>, peek=True)` | `atm peek --message-id <id> --json` (`mutation_applied` false) |
 | ack | `atm_ack(message_id, reply)` | `atm ack <id> "<reply>"` |
+
+CLI surfaces are disjoint: an ack-required message is listed by `--pending-ack`, never by
+`--unread`; the partner's ack reply is a plain message and is listed by `--unread`.
 
 ## Steps
 
@@ -27,12 +31,14 @@ is required. Run-id = current unix time, used in your one-line body.
 1. **Send.** One line `atm-smoke <run-id> from <you>` to the partner, ack required (CLI
    `--requires-ack`; native `requires_ack=True`). Observable: message id A; FAIL with the code on any
    error (`MAY_HAVE_EXECUTED` is a FAIL).
-2. **Partner's message arrives.** List unread every 10 s for up to 300 s until a message from the
-   partner whose summary starts `atm-smoke` is present; note its id B. Observable: seconds, id B.
-3. **Peek does not mutate.** Peek B by id, then list unread: B still present. Observable: yes/no.
-4. **Read by id.** Read B by id. Observable: `count` (must be 1) and `mutation_applied` where
-   reported (must be true).
-5. **Read marked it.** List unread: B gone. Observable: yes/no.
+2. **Partner's message arrives.** List the ack-required inbox every 10 s for up to 300 s until a row
+   from the partner whose summary starts `atm-smoke` is present with `read` false; note its id B.
+   Observable: seconds, id B, `read`.
+3. **Peek does not mutate.** Peek B by id (`mutation_applied` false), then list again: B's row still
+   has `read` false. Observable: `mutation_applied`, `read`.
+4. **Read by id.** Read B by id. Observable: `count` (must be 1) and `mutation_applied` (must be true).
+5. **Read marked it.** List the ack-required inbox again: B's row now has `read` true (allow 2 s for
+   the queued handoff). Observable: `read`.
 6. **Stale-connection probe.** Do nothing for 5 s, then list. Observable: exit or error code; FAIL on
    `MAY_HAVE_EXECUTED`, `RequestWrite`, or a connection error.
 7. **Ack.** Ack B with reply `atm-smoke ack <run-id>`. Observable: exit or error code.
