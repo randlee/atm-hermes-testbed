@@ -34,9 +34,11 @@ is required. Run-id = current unix time, used in your one-line body.
 1. **Send.** One line `atm-smoke <run-id> from <you>` to the partner, ack required (CLI
    `--requires-ack`; native `requires_ack=True`). Observable: message id A; FAIL with the code on any
    error (`MAY_HAVE_EXECUTED` is a FAIL).
-2. **Partner's message arrives.** List the ack-required inbox every 10 s for up to 300 s until a row
+2. **Partner's message arrives.** List the ack-required inbox every 10 s for up to 600 s until a row
    from the partner whose summary starts `atm-smoke` is present with `read` false; note its id B.
-   Observable: seconds, id B, `read`.
+   Observable: seconds, id B, `read`. The partner is a different agent on its own clock and may
+   start minutes after you; poll until the full deadline, never shorten it, and never conclude
+   "partner not running" before it has elapsed.
 3. **Peek does not mutate.** Peek B by id (`mutation_applied` false), then list again: B's row still
    has `read` false. Observable: `mutation_applied`, `read`.
 4. **Read by id.** Read B by id. Observable: `count` (must be 1) and `mutation_applied` (must be true).
