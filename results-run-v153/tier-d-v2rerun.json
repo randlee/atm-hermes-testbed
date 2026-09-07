@@ -1,0 +1,89 @@
+{
+  "schema": 1,
+  "tier": "D",
+  "suite": "herdr-surface",
+  "verdict": "pass",
+  "counts": {
+    "pass": 7,
+    "fail": 0,
+    "skip": 0
+  },
+  "tests": [
+    {
+      "name": "D1-server-headless",
+      "status": "pass",
+      "detail": null
+    },
+    {
+      "name": "D2-workspace-round-trip",
+      "status": "pass",
+      "detail": null
+    },
+    {
+      "name": "D3-pane-split-rename",
+      "status": "pass",
+      "detail": null
+    },
+    {
+      "name": "D4-pane-run-execution",
+      "status": "pass",
+      "detail": null
+    },
+    {
+      "name": "D5-wait-output-sentinel",
+      "status": "pass",
+      "detail": null
+    },
+    {
+      "name": "D6-agent-list-surface",
+      "status": "pass",
+      "detail": null
+    },
+    {
+      "name": "D7-herdr-nudge-routing",
+      "status": "pass",
+      "detail": null
+    }
+  ],
+  "versions": {
+    "atm": "1.5.3",
+    "hermes_atm": "1.5.3",
+    "atm_graft": "1.5.3",
+    "herdr": "herdr 0.8.2",
+    "hermes_fork": "unknown"
+  },
+  "provenance": {
+    "atm_core_sha": "",
+    "ci_run_id": "",
+    "artifacts": [
+      {
+        "name": "atm_1.5.3_aarch64-unknown-linux-gnu.tar.gz",
+        "sha256": "ee00a73aee785f47c125d4b31ac50056c39f7012ae76e76da3b9d7dd81ed7905"
+      },
+      {
+        "name": "hermes_atm-1.5.3-py3-none-any.whl",
+        "sha256": "2892e8490053b7158e9c87bb72838955390200e5247d940d971bc79c267a7318"
+      },
+      {
+        "name": "atm_graft-1.5.3-cp311-abi3-manylinux_2_17_aarch64.manylinux2014_aarch64.whl",
+        "sha256": "880eef4e90e04a16bf5bfa0e8b8a2d047b59f76183076a4b7336a99cfd0f1203"
+      }
+    ]
+  },
+  "daemon": {
+    "client_version": "1.5.3",
+    "daemon_version": "1.5.3",
+    "doctor_status": "warning"
+  },
+  "image": {
+    "tag": "loki/hermes-testbed:testbed",
+    "digest": "unknown"
+  },
+  "host": {
+    "platform": "aarch64",
+    "emulation": "native"
+  },
+  "started_at": "2026-09-07T03:21:59Z",
+  "finished_at": "2026-09-07T03:22:05Z",
+  "duration_ms": 6168
+}

@@ -1,0 +1,94 @@
+{
+  "schema": 1,
+  "tier": "A",
+  "suite": "mailbox-semantics",
+  "verdict": "pass",
+  "counts": {
+    "pass": 7,
+    "fail": 0,
+    "skip": 1
+  },
+  "tests": [
+    {
+      "name": "A1-send-read-history",
+      "status": "skip",
+      "detail": "HELD pending arch-ctm disposition: bare `atm read` (selection_mode=actionable) returns mutation_applied=True but does not persist the read mark (stays unread in `atm list`); explicit `atm read --message-id` does persist. Internal inconsistency under review as possible atm-core regression vs intended AV non-blocking handoff / no-read-your-writes. Expectation untouched; not rerun."
+    },
+    {
+      "name": "A2-pending-ack-lifecycle",
+      "status": "pass",
+      "detail": null
+    },
+    {
+      "name": "A3-mailbox-isolation",
+      "status": "pass",
+      "detail": null
+    },
+    {
+      "name": "A4-ordering-and-counts",
+      "status": "pass",
+      "detail": null
+    },
+    {
+      "name": "A5-unknown-recipient",
+      "status": "pass",
+      "detail": null
+    },
+    {
+      "name": "A6-ack-reply-round-trip",
+      "status": "pass",
+      "detail": null
+    },
+    {
+      "name": "A7-cross-team-routing",
+      "status": "pass",
+      "detail": null
+    },
+    {
+      "name": "A8-body-fidelity",
+      "status": "pass",
+      "detail": null
+    }
+  ],
+  "versions": {
+    "atm": "1.5.3",
+    "hermes_atm": "1.5.3",
+    "atm_graft": "1.5.3",
+    "herdr": "herdr 0.8.2",
+    "hermes_fork": "unknown"
+  },
+  "provenance": {
+    "atm_core_sha": "",
+    "ci_run_id": "",
+    "artifacts": [
+      {
+        "name": "atm_1.5.3_aarch64-unknown-linux-gnu.tar.gz",
+        "sha256": "ee00a73aee785f47c125d4b31ac50056c39f7012ae76e76da3b9d7dd81ed7905"
+      },
+      {
+        "name": "hermes_atm-1.5.3-py3-none-any.whl",
+        "sha256": "2892e8490053b7158e9c87bb72838955390200e5247d940d971bc79c267a7318"
+      },
+      {
+        "name": "atm_graft-1.5.3-cp311-abi3-manylinux_2_17_aarch64.manylinux2014_aarch64.whl",
+        "sha256": "880eef4e90e04a16bf5bfa0e8b8a2d047b59f76183076a4b7336a99cfd0f1203"
+      }
+    ]
+  },
+  "daemon": {
+    "client_version": "1.5.3",
+    "daemon_version": "1.5.3",
+    "doctor_status": "warning"
+  },
+  "image": {
+    "tag": "loki/hermes-testbed:testbed",
+    "digest": "unknown"
+  },
+  "host": {
+    "platform": "aarch64",
+    "emulation": "native"
+  },
+  "started_at": "2026-09-07T03:21:53Z",
+  "finished_at": "2026-09-07T03:21:54Z",
+  "duration_ms": 1280
+}
