@@ -8,7 +8,7 @@ is built (cold image build: 10–20 minutes, once per input change). Plan and ru
 
 ```sh
 V=1.5.7                                   # ATM version under test; patch-bumped on develop and tagged prerelease/v$V
-SHA=$(git -C ~/Documents/github/atm-core rev-parse prerelease/v$V)   # the tagged commit
+SHA=$(git -C ~/Documents/github/atm-core rev-parse "prerelease/v$V^{commit}")   # the tagged COMMIT (the tag itself is an annotated object; without ^{commit} the CI lookup finds nothing)
 O=fenix@atm-dev                           # oversight agent (on this host)
 F=atm-hermes-testbed.local                # fixture name = the container's peer host name
 export TESTBED_PLATFORM=arm64             # Apple Silicon host: native arm64 image

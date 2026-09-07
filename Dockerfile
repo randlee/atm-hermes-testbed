@@ -30,7 +30,8 @@ RUN apt-get -o Acquire::Retries=3 update && \
 # (sudoers block removed — hooks refuse non-root; lifecycle is docker-exec-only)
 
 # herdr 0.8.2 — native Rust, musl static, sha256 verified against v0.8.2 release
-COPY --chmod=0755 assets/herdr-linux-x86_64 /usr/local/bin/herdr
+ARG HERDR_BIN=herdr-linux-x86_64
+COPY --chmod=0755 assets/${HERDR_BIN} /usr/local/bin/herdr
 
 # atm + atm-daemon from the GitHub Release tarball (the installer path).
 # Filenames parametrized so pre-release drops (ATM_TARBALL env override in

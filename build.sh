@@ -151,6 +151,7 @@ build_testbed() {
   echo "testbed artifacts: $ATM_TARBALL_NAME / $HERMES_ATM_NAME / $ATM_GRAFT_NAME"
   DOCKER_BUILDKIT=1 docker buildx build --platform "$DOCKER_PLAT" --load \
     --build-arg ATM_TARBALL="$ATM_TARBALL_NAME" \
+    --build-arg HERDR_BIN="$HERDR_ARCHIVE" \
     --build-arg HERMES_ATM_WHEEL="$HERMES_ATM_NAME" \
     --build-arg ATM_GRAFT_WHEEL="$ATM_GRAFT_NAME" \
     -t loki/hermes-testbed:testbed .
