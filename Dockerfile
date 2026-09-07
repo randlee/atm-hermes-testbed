@@ -60,6 +60,14 @@ RUN uv pip install --python /opt/hermes/.venv/bin/python --no-index \
     /opt/hermes/.venv/bin/python -c "import hermes_atm, atm_graft, importlib.metadata as m; print('hermes_atm', m.version('hermes-atm'), '| atm_graft', m.version('atm-graft'), '| seam client module:', hermes_atm.__name__)"
 
 # Test-team config + stub agents (graph test actors)
+# ATM integration test skills (AGENTS.md). The boot hook syncs /opt/hermes/skills
+# into $HERMES_HOME/skills, so the container's Hermes agents carry the same files
+# every other agent runs from .claude/skills.
+COPY .claude/skills/atm-setup-environment /opt/hermes/skills/atm-setup-environment
+COPY .claude/skills/atm-smoke /opt/hermes/skills/atm-smoke
+COPY .claude/skills/atm-hermes-ready /opt/hermes/skills/atm-hermes-ready
+COPY .claude/skills/atm-nudge-roundtrip /opt/hermes/skills/atm-nudge-roundtrip
+COPY .claude/skills/atm-troubleshoot /opt/hermes/skills/atm-troubleshoot
 COPY testbed/atm.toml /opt/testbed/.atm.toml
 COPY --chmod=0755 testbed/stub-agent.sh /opt/testbed/stub-agent.sh
 COPY --chmod=0755 testbed/test-smoke.sh /opt/testbed/test-smoke.sh
