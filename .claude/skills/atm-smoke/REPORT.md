@@ -1,6 +1,14 @@
 # ATM test report template
 
-Every ATM test skill sends exactly one report message in this shape: the block below filled in,
+Every ATM test skill sends three kinds of line to the requester, all plain text, all with
+`atm send <requester> --stdin` (native: `atm_send`):
+
+1. **Start line, first action of the skill, before any step** — nobody should wonder whether the
+   agent is running: `ATM TEST START skill: <skill-name> fixture: <fixture> agent: <agent@team>`.
+2. **Wait line, once every 60 s while a step is waiting on a deadline** (a partner's message, an
+   ack): `ATM TEST WAIT skill: <skill-name> step <n> <elapsed>s/<deadline>s`. Nothing else is sent
+   while waiting.
+3. **Exactly one report message** in this shape: the block below filled in,
 as plain text, nothing before it and nothing after it (no markdown headings, no summary, no
 prose). Same shape on every fixture; the `fixture` line is the only fixture-specific content.
 
