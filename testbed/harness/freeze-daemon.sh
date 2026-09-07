@@ -51,6 +51,11 @@ if [ -z "$PID" ]; then
   exit 1
 fi
 date -u +%Y-%m-%dT%H:%M:%SZ > "$MARKERS/at8-armed"
+# Record the chosen delay in the armed marker (fenix tweak 1: calibration
+# provenance — the coordinator sets --after from the agent's measured RTT).
+if [ -n "$AFTER_MS" ]; then
+  printf 'after_ms=%s\n' "$AFTER_MS" >> "$MARKERS/at8-armed"
+fi
 chmod 666 "$MARKERS/at8-armed" 2>/dev/null || true
 if [ -n "$TRIGGER" ]; then
   rm -f "$TRIGGER"

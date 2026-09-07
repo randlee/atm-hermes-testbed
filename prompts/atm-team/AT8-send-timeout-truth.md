@@ -31,10 +31,13 @@ stale-connection-to-restarted-daemon case, which is AT4's territory, not
 AT8's). So AT8's result should be the SAME across 1.4.3 and 1.4.6; a
 difference would be a finding, not an expected regression signal. The two
 freeze timings below deliberately select the branch you get:
-  - freeze-daemon.sh 4            (freeze before the send) -> mostly branch (a)
-  - freeze-daemon.sh 4 --after 300 (freeze ~300ms AFTER the send starts, so
-    the daemon has accepted+persisted but its reply is delayed past the 3.25s
-    client budget) -> deterministically branch (b).
+  - freeze before the send (no --after)  -> mostly branch (a)
+  - freeze --after <calibrated ms> AFTER the send starts, so the daemon has
+    accepted+persisted but its reply is delayed past the 3.25s client budget
+    -> deterministically branch (b). The delay is CALIBRATED per run from
+    your warm-up RTT (≈ half the measured accept latency, floor 300ms,
+    ceiling 1500ms) because a fixed 300ms is a timing assumption that a slow
+    (e.g. qemu-emulated) guest can violate — see the step-12 guard.
 
 Empirical error shape (arch-ctm@atm-dev, observed on atm 1.4.3 with a full
 4s SIGSTOP freeze; forward-ported from closed PR #2, additive note): the
@@ -47,33 +50,43 @@ assume either one.
 
 Context already true in this fixture: the ATM daemon is running; team
 `fx-at8` with members `fx-at8-alpha` and `fx-at8-beta` is registered by the
-harness before you start; the harness freeze hook is
-/opt/testbed/harness/freeze-daemon.sh (supports `--after <ms>`; the client's
-absolute request budget in this fixture is 3.25s). Your default identity is
-`fx-at8-alpha`.
+harness before you start. The freeze is executed OUT OF BAND by the
+coordinator (root `docker exec` of /opt/testbed/harness/freeze-daemon.sh —
+you never invoke it and never use sudo; the client's absolute request budget
+in this fixture is 3.25s). You coordinate via marker files under
+/opt/testbed/results/markers/ (writable by you): `at8-armed` appears when the
+hook is watching (contents: UTC ISO timestamp + the chosen after_ms),
+`at8-done` appears after the daemon is resumed. For Phase B the hook also
+watches a TRIGGER file: touching it starts the `--after` delay on YOUR
+timing. Your default identity is `fx-at8-alpha`.
 
 Steps:
 
-1. Harness-hook precondition: run `test -x
-   /opt/testbed/harness/freeze-daemon.sh`. If not present/executable, record
-   status "skip" with reason "harness script missing" for every remaining
-   step and stop (still write the full report).
-2. Warm-up: `ATM_IDENTITY=fx-at8-alpha ATM_TEAM=fx-at8 atm send fx-at8-beta
-   "AT8-WARMUP" --team fx-at8`. Exit code 0 — confirms the daemon is healthy
-   before inducing any freeze.
+1. Marker-dir precondition: run `test -w /opt/testbed/results/markers`. If
+   not present/writable, record status "skip" with reason "marker dir
+   missing" for every remaining step and stop (still write the full report).
+   Also record no-sudo acceptance evidence in `detail`: your uid (`id -u`,
+   must be != 0) and that sudo is absent (`command -v sudo`, must be empty).
+2. Warm-up + calibration: `ATM_IDENTITY=fx-at8-alpha ATM_TEAM=fx-at8 atm send
+   fx-at8-beta "AT8-WARMUP" --team fx-at8`. Exit code 0 — confirms the daemon
+   is healthy before inducing any freeze. ALSO measure this send's wall-clock
+   RTT in milliseconds (e.g. wrap with date +%s%3N before/after, or
+   `time`) and record it in `detail` as `warmup_rtt_ms`. The coordinator
+   arms Phase B with `--after` ≈ half your measured accept latency (floor
+   300ms, ceiling 1500ms); your RTT is that calibration input.
 
    --- Phase A: freeze BEFORE the send (expected branch (a), write lost) ---
-3. Phase-A freeze: run `/opt/testbed/harness/freeze-daemon.sh 4 &`
-   immediately before the next step (no --after), so the daemon is frozen
-   before it can read the request.
+3. Phase-A arm: poll until `/opt/testbed/results/markers/at8-armed` exists
+   (the coordinator has launched the out-of-band freeze with no --after;
+   bound 60s). Record the marker contents (UTC timestamp) in `detail`.
 4. Phase-A timeout send: immediately run `ATM_IDENTITY=fx-at8-alpha atm send
    fx-at8-beta "AT8-PHASE-A" --team fx-at8 --json`. Capture the request id
    from the output (record it in `detail`; note if none is visible). Expect a
    non-zero exit code (observed on atm 1.4.3: exit 9, stdout EMPTY, stderr
    `HTTP client request exceeded its absolute request budget`). Record the
    exit code and exact stderr text.
-5. Phase-A freeze completed: wait-gate (not pass/fail) until the step-3
-   background job exits.
+5. Phase-A freeze completed: poll until `/opt/testbed/results/markers/at8-done`
+   exists (bound 30s). Wait-gate semantics — not pass/fail on its own.
 6. Phase-A log truth check: search `~/.atm/logs/atm.log.jsonl` (via `atm log
    filter` or `atm log tail`, per docs/user-documents/doctor-and-log.md) for
    a send entry correlated with the step-4 request — prefer matching by the
@@ -91,17 +104,30 @@ Steps:
    matched the step-6 log outcome. Record the count.
 
    --- Phase B: freeze AFTER the send starts (expected branch (b), landed) ---
-9. Phase-B freeze: run `/opt/testbed/harness/freeze-daemon.sh 4 --after 300 &`
-   and IMMEDIATELY run the next step, so the send starts before the freeze
-   lands and the daemon persists it but its reply is delayed past the budget.
-10. Phase-B timeout send: immediately run `ATM_IDENTITY=fx-at8-alpha atm send
-    fx-at8-beta "AT8-PHASE-B" --team fx-at8 --json`. Capture the request id.
-    Expect a non-zero exit code (client budget abort). Record exit code and
-    stderr.
-11. Phase-B freeze completed: wait-gate until the step-9 background job exits.
+9. Phase-B arm: poll until `/opt/testbed/results/markers/at8-armed` exists
+   AGAIN (the coordinator has re-launched the hook out of band with
+   `--after <calibrated-ms> --trigger /opt/testbed/results/markers/at8-trigger`;
+   the hook clears both markers when it re-arms, so wait for the FRESH
+   at8-armed — bound 60s). Record the marker contents in `detail`: the UTC
+   timestamp AND `after_ms=<value>` (the coordinator's calibrated delay,
+   derived from your step-2 warmup RTT).
+10. Phase-B timeout send: `touch /opt/testbed/results/markers/at8-trigger`
+    && IMMEDIATELY (same shell line, &&-chained) run
+    `ATM_IDENTITY=fx-at8-alpha atm send fx-at8-beta "AT8-PHASE-B" --team
+    fx-at8 --json`. The hook's --after delay starts at YOUR touch, so the
+    daemon accepts+persists your send, then freezes before replying — the
+    reply lands past the 3.25s budget. Capture the request id. Expect a
+    non-zero exit code (client budget abort). Record exit code and stderr.
+11. Phase-B freeze completed: poll until `/opt/testbed/results/markers/at8-done`
+    exists (bound 30s). Wait-gate semantics — not pass/fail on its own.
 12. Phase-B log truth check: same as step 6 but for `AT8-PHASE-B`. For phase B
     expect PRESENT (the daemon accepted+persisted before the reply timed out).
-    Record PRESENT/ABSENT and the correlation method.
+    Record PRESENT/ABSENT and the correlation method. CALIBRATION GUARD
+    (fenix tweak): confirm from the log entry's timestamp that the request
+    was persisted BEFORE the SIGSTOP time (the at8-armed timestamp plus the
+    after_ms delay from step 9). If the freeze preceded the persist, this
+    row is FAIL with reason "freeze preceded persist (delay too short)" —
+    never rerun-until-green.
 13. Phase-B retry decision: apply the rule. If step 12 = PRESENT, do NOT
     retry; record that you did not and why. If step 12 = ABSENT (unexpected
     for phase B), retry once and record it.

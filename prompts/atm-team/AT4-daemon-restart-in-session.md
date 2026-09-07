@@ -18,26 +18,31 @@ in order; if a step fails, record it as failed and continue.
 
 Context already true in this fixture: the ATM daemon is running; team
 `fx-at4` with members `fx-at4-alpha` and `fx-at4-beta` is registered by the
-harness before you start; the harness restart hook is
-/opt/testbed/harness/restart-daemon.sh (kills atm-daemon, clears the stale
-owner lock, relaunches it detached, and internally wait-gates up to 60s on
-/root/.atm/daemon/local-http.json reappearing before exiting 0, or exits
-non-zero on failure). Your default identity is `fx-at4-alpha`.
+harness before you start; the restart is executed OUT OF BAND by the
+coordinator (root `docker exec` of /opt/testbed/harness/restart-daemon.sh —
+you never invoke it and never use sudo); you coordinate via marker files
+under /opt/testbed/results/markers/ (writable by you): touching `at4-ready`
+arms the restart, `at4-done` (contents: UTC ISO timestamp) appears when the
+daemon is back. Your default identity is `fx-at4-alpha`.
 
 Steps:
 
-1. Harness-hook precondition: run `test -x
-   /opt/testbed/harness/restart-daemon.sh`. If it is not present/executable,
-   record status "skip" with reason "harness script missing" for every
-   remaining step and stop (still write the full report).
+1. Marker-dir precondition: run `test -w /opt/testbed/results/markers`. If
+   not present/writable, record status "skip" with reason "marker dir
+   missing" for every remaining step and stop (still write the full report).
+   Also record no-sudo acceptance evidence in `detail`: your uid (`id -u`,
+   must be != 0) and that sudo is absent (`command -v sudo`, must be empty).
 2. Pre-restart baseline: `ATM_IDENTITY=fx-at4-alpha ATM_TEAM=fx-at4 atm send
    fx-at4-beta "AT4-PRE-1" --team fx-at4`. Exit code 0. Then
    `ATM_IDENTITY=fx-at4-beta atm read --team fx-at4 --history --json` and
    record the message count as `count_before` (must include AT4-PRE-1).
-3. Trigger restart: run `/opt/testbed/harness/restart-daemon.sh`. Expect
-   exit code 0 (the script itself is the wait-gate on
-   /root/.atm/daemon/local-http.json reappearing; do not add your own extra
-   wait loop beyond letting the script finish).
+3. Trigger restart via marker: `touch /opt/testbed/results/markers/at4-ready`
+   (the coordinator's out-of-band hook is waiting on it), then poll for
+   `/opt/testbed/results/markers/at4-done`:
+   `for i in $(seq 1 90); do [ -f /opt/testbed/results/markers/at4-done ] && break; sleep 1; done`.
+   PASS when at4-done appears within 90s; record BOTH marker timestamps
+   (file contents, UTC ISO) in `detail`. Do NOT invoke any hook script
+   yourself and do NOT use sudo.
 4. Post-restart send, zero manual steps: `ATM_IDENTITY=fx-at4-alpha atm send
    fx-at4-beta "AT4-POST-1" --team fx-at4`. Exit code 0 with no retries, no
    re-authentication, and no other manual recovery command between step 3
