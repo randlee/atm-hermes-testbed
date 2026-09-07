@@ -3,17 +3,19 @@
 # Run INSIDE the container after run.sh --peer. Usage:
 #   setup-peer.sh <mac-host> <mac-cert-fingerprint>
 # 1. Rebinds the peer interface: 0.0.0.0:43101 + advertise-host matching the
-#    container cert (hermes-testbed.local; SAN also covers localhost).
+#    container cert (atm-hermes-testbed.local; SAN also covers localhost).
 # 2. Adds the Mac as a trusted peer (hostname + cert pin, per trust model).
 # 3. Restarts the daemon so the new bind takes effect.
 set -eu
 MAC_HOST="${1:?usage: setup-peer.sh <mac-host> <mac-fingerprint>}"
 MAC_FP="${2:?usage: setup-peer.sh <mac-host> <mac-fingerprint>}"
 
-# advertise-host = localhost: the container cert's SAN covers DNS:localhost,
-# so the Mac can dial localhost:<published-port> with fingerprint pinning —
-# no /etc/hosts alias needed on the host side.
-atm peer interface set --bind 0.0.0.0:43101 --advertise-host localhost --enabled >/dev/null
+# advertise-host = atm-hermes-testbed.local (Rand ruling Q1, 2026-09-06):
+# the container cert's CN/SAN carry this name, and the host maps it to the
+# colima VM IP via /etc/hosts (coordinator step, see COLIMA-VM-INTERNAL-PLAN
+# C3). NEVER advertise localhost — the host's own localhost trust entry pins
+# the host daemon cert, so any localhost-addressed dial would pin-mismatch.
+atm peer interface set --bind 0.0.0.0:43101 --advertise-host atm-hermes-testbed.local --enabled >/dev/null
 atm peer trust add --host "$MAC_HOST" --fingerprint "$MAC_FP" --https-port 43101 --yes >/dev/null
 
 pkill -9 -x atm-daemon 2>/dev/null || true
@@ -28,4 +30,4 @@ done
 [ -f /root/.atm/daemon/local-http.json ] || { echo "FATAL: daemon did not start"; head -5 /tmp/atm-daemon.log; exit 1; }
 chmod -R a+rX /root/.atm/daemon 2>/dev/null || true
 chmod -R a+rwX /root/.atm/db /root/.atm/logs 2>/dev/null || true
-echo "peer mode configured: advertise=hermes-testbed.local, trusted=$MAC_HOST"
+echo "peer mode configured: advertise=atm-hermes-testbed.local, trusted=$MAC_HOST"

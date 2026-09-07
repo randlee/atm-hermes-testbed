@@ -28,11 +28,11 @@ fi
 mkdir -p "$IDIR"
 CERT="$IDIR/certificate.pem"; KEY="$IDIR/private-key.pem"
 openssl req -x509 -newkey rsa:2048 -sha256 -nodes -days 3650 \
-  -subj "/CN=hermes-testbed.local" \
+  -subj "/CN=atm-hermes-testbed.local" \
   -addext "basicConstraints=critical,CA:FALSE" \
   -addext "keyUsage=critical,digitalSignature,keyEncipherment" \
   -addext "extendedKeyUsage=serverAuth,clientAuth" \
-  -addext "subjectAltName=DNS:hermes-testbed.local,DNS:localhost" \
+  -addext "subjectAltName=DNS:atm-hermes-testbed.local,DNS:localhost" \
   -keyout "$KEY" -out "$CERT" 2>/dev/null
 chmod 600 "$KEY"
 cat "$CERT" "$KEY" > "$BUNDLE"; chmod 600 "$BUNDLE"

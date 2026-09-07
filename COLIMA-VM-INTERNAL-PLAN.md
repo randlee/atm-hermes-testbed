@@ -8,9 +8,10 @@ A–D+D7 + AT0–AT8 against the current candidate (1.4.13 content).
 ## Verified preconditions (2026-09-04)
 
 - colima: STOPPED (`colima status` → not running). First step is `colima start`.
-- Current resources 2 CPU / 2 GiB — Q2 asks for 4/4 (needs `colima stop` →
-  `colima start --cpu 4 --memory 4` or config edit; VM-internal tiers incl.
-  the prompt suite are CPU-bound, 4/4 recommended).
+- Resources: **Q2 RULED by Rand 2026-09-06: 4 CPU / 4 GiB approved** ("not a
+  big loss" — host is M5 Max, 18 cores / 128 GB, 97% free; no GPU is
+  involved, colima gets none and the suite needs none). Start with
+  `colima start --cpu 4 --memory 4`.
 - Tags `prerelease/v1.4.12` (4f1202bf2) and `prerelease/v1.4.13` (7e4302d98)
   exist on origin. Tarballs: NOT GitHub Releases by design — prerelease-archive
   stores Actions artifacts (fenix correction 2026-09-04).
@@ -56,11 +57,14 @@ A–D+D7 + AT0–AT8 against the current candidate (1.4.13 content).
 
 ## C3 — peer entry properly named, never localhost
 
-- [ ] Container cert SAN includes DNS:hermes-testbed.local (setup-mtls.sh
-  already generates it) — container advertises `hermes-testbed.local`.
-- [ ] Host trust entry: `hermes-testbed.local` + container fp + port 43102
-  (published), dial via hosts-file mapping, NOT localhost (Q1 may rename the
-  authority — fenix recommended rand-m5.local:43102; adjust to ruling).
+- [ ] **Q1 RULED by Rand 2026-09-06: peer authority name is
+      `atm-hermes-testbed.local`** (matches the test repo name). Harness
+      already updated: setup-mtls.sh CN/SAN + setup-peer.sh advertise-host.
+- [ ] Container cert SAN includes DNS:atm-hermes-testbed.local (setup-mtls.sh
+      regenerates it) — container advertises `atm-hermes-testbed.local`.
+- [ ] Host trust entry: `atm-hermes-testbed.local` + container fp + port 43102
+      (published), host /etc/hosts maps the name to the colima VM IP,
+      NOT localhost.
 - [ ] update-member/run.sh --peer uses the named entry everywhere; grep for
   `localhost` pins before the AT3 leg as a hard gate.
 - Owner: loki (container side) + fenix (host entry, his daemon). Dependency:
@@ -78,7 +82,7 @@ managed daemon restart (host daemon now 1.4.13 from develop, pid 13296).
 - [ ] Verify host `.localhost` self-sends behave under the new localhost key
       (loki's self-send nudge test) — do NOT dial container through localhost:
       with the host's own cert pinned there, container-bound sends must use
-      the named hermes-testbed.local entry (C3), never localhost.
+      the named atm-hermes-testbed.local entry (C3), never localhost.
 - Owner: loki executes the roster deletion on ruling; fenix owns host daemon.
   NOTE: trust pins bake at daemon bootstrap (MtlsPeerStreamAdapter::
   from_peer_config, no reload path) — fenix's managed restart already covered
