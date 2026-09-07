@@ -102,6 +102,9 @@ COPY --chmod=0755 testbed/harness/at8-calibrate.sh /opt/testbed/harness/at8-cali
 COPY --chmod=0755 testbed/harness/test-at8-calibrate.sh /opt/testbed/harness/test-at8-calibrate.sh
 COPY --chmod=0755 testbed/harness/install-claude-code.sh /opt/testbed/harness/install-claude-code.sh
 COPY --chmod=0755 testbed/harness/run-tester.sh /opt/testbed/harness/run-tester.sh
+# Claude Code for the hmux tester (herdr agent); bringup.sh only falls back to installing it at run time.
+COPY --chmod=0755 testbed/harness/install-claude-code.sh /opt/testbed/harness/install-claude-code.sh
+RUN /opt/testbed/harness/install-claude-code.sh
 COPY --chmod=0755 testbed/harness/setup-mtls.sh /opt/testbed/harness/setup-mtls.sh
 COPY --chmod=0755 testbed/harness/setup-peer.sh /opt/testbed/harness/setup-peer.sh
 COPY --chmod=0755 testbed/harness/bringup.sh /opt/testbed/harness/bringup.sh

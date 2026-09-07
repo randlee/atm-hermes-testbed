@@ -39,8 +39,14 @@ atm teams add-member "$TEAM" hermes     --agent-type hermes --home-dir /opt/data
 $AS_HERMES sh -c "cd /opt/data && /opt/hermes/.venv/bin/python -m hermes_atm install --profile default --profile-home /opt/data --identity hermes --team $TEAM --chat-id $CHAT_ID --atm-home /root/.atm --workspace-root /opt/testbed" >/tmp/hermes-atm-install.log 2>&1 || echo "bringup: WARN hermes_atm install failed (see /tmp/hermes-atm-install.log)"
 $AS_HERMES sh -c "cd /opt/data && hermes plugins enable hermes-atm-native-tools" >/dev/null 2>&1 || true
 mkdir -p /opt/testbed/.atm && chown -R hermes /opt/testbed/.atm
-pkill -f "[h]ermes gateway run" 2>/dev/null || true   # s6 restarts the gateway with the hook loaded
-# 6
+# The gateway is not s6-supervised (main-hermes is `sleep infinity`); start it ourselves, from the
+# profile dir, as hermes, and wait for the hook to load so the receiver registers before any test.
+pkill -f "[h]ermes gateway run" 2>/dev/null || true; sleep 1
+mkdir -p /opt/data/logs && chown hermes /opt/data/logs
+$AS_HERMES sh -c "cd /opt/data && nohup hermes gateway run --replace >>/opt/data/logs/gateway.log 2>&1 &"
+for i in $(seq 1 60); do grep -q "hook(s) loaded" /opt/data/logs/gateway.log 2>/dev/null && break; sleep 1; done
+# 6 (Claude Code is installed at image build; this is the fallback for an older image)
+command -v claude >/dev/null 2>&1 || /opt/testbed/harness/install-claude-code.sh >/tmp/install-claude-code.log 2>&1 || echo "bringup: WARN claude install failed (see /tmp/install-claude-code.log)"
 $AS_HERMES sh -c "cd /opt/data && herdr integration install claude" >/dev/null 2>&1 || true
 herdr pane list 2>/dev/null | python3 -c '
 import sys, json, subprocess
@@ -57,7 +63,7 @@ for a in json.load(sys.stdin)["result"]["agents"]:
   if [ -n "$PANE" ]; then herdr agent rename "$PANE" tester >/dev/null 2>&1 || true; break; fi
   sleep 2
 done
-for i in $(seq 1 30); do pgrep -f "[h]ermes gateway run" >/dev/null 2>&1 && break; sleep 1; done
 echo "bringup: done"
+pgrep -f "[h]ermes gateway run" >/dev/null 2>&1 && echo "bringup: gateway up ($(grep -c 'hook(s) loaded' /opt/data/logs/gateway.log 2>/dev/null) hook load(s) logged)" || echo "bringup: WARN gateway not running (see /opt/data/logs/gateway.log)"
 atm doctor --json 2>/dev/null | python3 -c 'import sys,json; d=json.load(sys.stdin); print("bringup: doctor", json.dumps(d.get("summary")))' || echo "bringup: WARN doctor did not answer"
 herdr agent list 2>/dev/null | python3 -c 'import sys,json; print("bringup: herdr", [(a.get("name"), a.get("agent_status")) for a in json.load(sys.stdin)["result"]["agents"]])' || true
