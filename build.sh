@@ -65,6 +65,9 @@ fetch_assets() {
     echo "$ATM_ARCHIVE" | grep -q "_${ATM_ARCH}-unknown-linux-gnu.tar.gz" || \
       { echo "FATAL: ATM_TARBALL name does not match atm_*_${ATM_ARCH}-unknown-linux-gnu.tar.gz"; exit 1; }
     cp -f "$ATM_TARBALL" "$ATM_ARCHIVE"
+    # Purge stale tarballs so no glob can ever pick the wrong version
+    # (2026-09-07: 1.4.3 leftovers shadowed the 1.5.3 override).
+    find . -maxdepth 1 -name "atm_*_${ATM_ARCH}-unknown-linux-gnu.tar.gz" ! -name "$ATM_ARCHIVE" -delete
     ATM_VERSION=$(echo "$ATM_ARCHIVE" | sed "s/atm_\\(.*\\)_${ATM_ARCH}.*/\\1/")
     echo "atm tarball override: $ATM_TARBALL (sha256 $(shasum -a 256 "$ATM_ARCHIVE" | cut -d' ' -f1))"
   else
@@ -125,9 +128,25 @@ build_testbed() {
   echo "== building loki/hermes-testbed:testbed =="
   cd "$HERE"
   cd assets
-  ATM_TARBALL_NAME="$(ls atm_*_${ATM_ARCH}-unknown-linux-gnu.tar.gz | head -1)"
-  HERMES_ATM_NAME="$(ls hermes_atm-*.whl | head -1)"
-  ATM_GRAFT_NAME="$(ls atm_graft-*.whl | head -1)"
+  # EXACT artifact pinning (2026-09-07, v1.5.3 run): the old
+  # `ls atm_* | head -1` glob picks alphabetically — stale 1.4.3 assets
+  # shadowed the 1.5.3 override and the image silently shipped the wrong
+  # binary. When overrides are set, use exactly those files; verify presence.
+  if [ -n "${ATM_TARBALL:-}" ]; then
+    ATM_TARBALL_NAME="$(basename "$ATM_TARBALL")"
+    [ -f "$ATM_TARBALL_NAME" ] || { echo "FATAL: override tarball $ATM_TARBALL_NAME missing from assets/"; exit 1; }
+  else
+    ATM_TARBALL_NAME="$(ls atm_*_${ATM_ARCH}-unknown-linux-gnu.tar.gz | head -1)"
+  fi
+  if [ -n "${WHEELS_DIR:-}" ]; then
+    HERMES_ATM_NAME="$(basename "$(ls "$WHEELS_DIR"/hermes_atm-*.whl | head -1)")"
+    ATM_GRAFT_NAME="$(basename "$(ls "$WHEELS_DIR"/atm_graft-*.whl | head -1)")"
+    [ -f "$HERMES_ATM_NAME" ] && [ -f "$ATM_GRAFT_NAME" ] || \
+      { echo "FATAL: WHEELS_DIR wheels ($HERMES_ATM_NAME / $ATM_GRAFT_NAME) missing from assets/"; exit 1; }
+  else
+    HERMES_ATM_NAME="$(ls hermes_atm-*.whl | head -1)"
+    ATM_GRAFT_NAME="$(ls atm_graft-*.whl | head -1)"
+  fi
   cd "$HERE"
   echo "testbed artifacts: $ATM_TARBALL_NAME / $HERMES_ATM_NAME / $ATM_GRAFT_NAME"
   DOCKER_BUILDKIT=1 docker buildx build --platform "$DOCKER_PLAT" --load \
