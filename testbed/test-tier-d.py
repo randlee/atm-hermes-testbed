@@ -166,7 +166,11 @@ def d7_herdr_nudge_routing(label: str) -> None:
          backendType=herdr metadata (SQLite team_roster.metadata_json).
       3. send exits 0, message id returned, and stdout carries NO
          ATM_HERDR_UNAVAILABLE (the hook dispatched, breaker closed).
-      4. daemon observability log shows action=send outcome=sent for the id.
+      4. daemon observability log shows action=send outcome=sent (the
+         routing contract). suite/v2: NOT correlated by message ULID in the
+         log — 1.5.x structured entries carry message=null; per-message
+         correlation is via the product API (exit 0 + returned id) and the
+         receiver mailbox, not the obsolete log shape.
       5. the agent snapshot is still reachable afterwards (agent get).
     """
     team = f"d7-{label}"
@@ -219,19 +223,21 @@ def d7_herdr_nudge_routing(label: str) -> None:
         f"herdr hook breaker open: {out[:300]}"
     assert "message_id:" in out or "Sent to" in out, out[:300]
 
-    # daemon log: outcome sent for this message
-    import re as _re
-    mid_m = _re.search(r"message_id[:\s]+([0-9A-Z]{20,})", out)
+    # daemon observability log: the documented routing contract is
+    # action=send outcome=sent (D7 contract item 4). suite/v2 repair
+    # (fenix authorization, atm-core b84a9d2ef0 lineage): the per-message
+    # ULID grep is DROPPED — 1.5.x structured send entries carry
+    # message=null with fields={command} only, so the ULID is no longer
+    # present in the log shape. Correlating the send to this test relies on
+    # the product-API evidence already asserted above (exit 0 + message_id
+    # returned at line ~216) and below (receiver mailbox / agent reach-
+    # able), not on the obsolete log shape. The remaining assertion is the
+    # routing contract only: a send/sent observability event was emitted.
     log = subprocess.run(["sh", "-c", "grep -c '\"outcome\":\"sent\"' "
                           "/root/.atm/logs/atm.log.jsonl"],
                          capture_output=True, text=True)
     assert log.stdout.strip().isdigit() and int(log.stdout.strip()) > 0, \
         "no sent outcomes in daemon log"
-    if mid_m:
-        idcheck = subprocess.run(["sh", "-c", f"grep -c '{mid_m.group(1)}' "
-                                  "/root/.atm/logs/atm.log.jsonl"],
-                                 capture_output=True, text=True)
-        assert int(idcheck.stdout.strip() or 0) > 0, "message id absent from log"
 
     # agent still reachable (the daemon's probe path)
     got = herdr(["agent", "get", agent_name])

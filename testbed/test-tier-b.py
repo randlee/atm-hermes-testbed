@@ -34,44 +34,88 @@ FAILED: list[str] = []
 TEAM_FMT = "b-{suffix}"
 
 
+# Built-in nudge templates, transcribed VERBATIM from atm-core
+# crates/atm-core/src/send/nudge_template.rs `default_template()` at tag
+# prerelease/v1.5.3 (sha 9654b75f1). suite/v2 contract-driven repair: the
+# Phase AX1 queue-template-class change (atm-core commit
+# b84a9d2ef0cb7a3911ffe84642cb3e6f05b033e9, feat(ax1): add queue template
+# class) made every built-in render `atm read --message-id {{message_id}}`
+# (was `read atm --team {{team}}`), and the Task/Queue/QueueAck classes
+# intentionally OMIT the `<when .../>` line while Delivery/DeliveryAck retain
+# it. These strings are the product contract; expected_envelope renders them
+# rather than re-deriving the XML by hand, so the want-side cannot silently
+# drift from the product again. description = summary-if-nonempty-else-text
+# (send/hook.rs).
+_PRODUCT_TEMPLATES = {
+    # test kind -> (product BuiltInNudgeTemplateKind, template body)
+    "delivery": (
+        "Delivery",
+        '<atm from="{{from}}" message-id="{{message_id}}">\n'
+        '  <action>atm read --message-id {{message_id}}</action>\n'
+        '  <description>{{description}}</description>\n'
+        '  <action>execute the assigned task</action>\n'
+        '  <when idle="immediate" busy="after-current-task"/>\n'
+        '  <console announce="concise" pause="false"/>\n'
+        '</atm>',
+    ),
+    "delivery_ack": (
+        "DeliveryAck",
+        '<atm from="{{from}}" message-id="{{message_id}}">\n'
+        '  <action>atm read --message-id {{message_id}}</action>\n'
+        '  <action>ack the message</action>\n'
+        '  <description>{{description}}</description>\n'
+        '  <action>execute the assigned task</action>\n'
+        '  <when idle="immediate" busy="after-current-task"/>\n'
+        '  <console announce="concise" pause="false"/>\n'
+        '</atm>',
+    ),
+    # --task-id forces requires_ack, so the product renders the Task class
+    # (which carries the ack line and omits <when/>). There is no non-ack
+    # Task template in the product; "delivery_task" aliases it.
+    "delivery_task": (
+        "Task",
+        '<atm from="{{from}}" message-id="{{message_id}}">\n'
+        '  <action>atm read --message-id {{message_id}}</action>\n'
+        '  <action>ack the message</action>\n'
+        '  <task id="{{task_id}}">{{description}}</task>\n'
+        '  <action>execute the assigned task</action>\n'
+        '  <console announce="concise" pause="false"/>\n'
+        '</atm>',
+    ),
+    "delivery_task_ack": (
+        "Task",
+        '<atm from="{{from}}" message-id="{{message_id}}">\n'
+        '  <action>atm read --message-id {{message_id}}</action>\n'
+        '  <action>ack the message</action>\n'
+        '  <task id="{{task_id}}">{{description}}</task>\n'
+        '  <action>execute the assigned task</action>\n'
+        '  <console announce="concise" pause="false"/>\n'
+        '</atm>',
+    ),
+    "acknowledge": (
+        "Acknowledge",
+        '<atm kind="ack" from="{{from}}" message-id="{{message_id}}"/>',
+    ),
+}
+
+
 def expected_envelope(kind: str, sender: str, team: str, mid: str,
                       description: str = "", task_id: str = "",
                       body: str = "") -> str:
-    """1.4.3 injected only the envelope. 1.4.6 (develop) appends the raw
-    message body after the envelope, separated by a blank line:
-    `envelope + "\n\n" + body`. The `body` arg carries that trailing text."""
-    head = f'<atm from="{sender}@{team}" message-id="{mid}">'
-    env = ""
-    if kind == "delivery":
-        env = (f"{head}\n  <action>read atm --team {team}</action>\n"
-               f"  <description>{description}</description>\n"
-               f"  <action>execute the assigned task</action>\n"
-               f'  <when idle="immediate" busy="after-current-task"/>\n'
-               f'  <console announce="concise" pause="false"/>\n</atm>')
-    elif kind == "delivery_ack":
-        env = (f"{head}\n  <action>read atm --team {team}</action>\n"
-               f"  <action>ack the message</action>\n"
-               f"  <description>{description}</description>\n"
-               f"  <action>execute the assigned task</action>\n"
-               f'  <when idle="immediate" busy="after-current-task"/>\n'
-               f'  <console announce="concise" pause="false"/>\n</atm>')
-    elif kind == "delivery_task":
-        env = (f"{head}\n  <action>read atm --team {team}</action>\n"
-               f'  <task id="{task_id}">{description}</task>\n'
-               f"  <action>execute the assigned task</action>\n"
-               f'  <when idle="immediate" busy="after-current-task"/>\n'
-               f'  <console announce="concise" pause="false"/>\n</atm>')
-    elif kind == "delivery_task_ack":
-        env = (f"{head}\n  <action>read atm --team {team}</action>\n"
-               f"  <action>ack the message</action>\n"
-               f'  <task id="{task_id}">{description}</task>\n'
-               f"  <action>execute the assigned task</action>\n"
-               f'  <when idle="immediate" busy="after-current-task"/>\n'
-               f'  <console announce="concise" pause="false"/>\n</atm>')
-    elif kind == "acknowledge":
-        env = f'<atm kind="ack" from="{sender}@{team}" message-id="{mid}"/>'
-    else:
+    """Render the product's built-in nudge template for `kind` (suite/v2).
+
+    `team` is accepted for call-site compatibility but no longer appears in
+    the rendered envelope: since atm-core b84a9d2ef0 the action line targets
+    `atm read --message-id {{message_id}}`, not `read atm --team {{team}}`.
+    The raw message body is appended after a blank line (send/hook.rs)."""
+    if kind not in _PRODUCT_TEMPLATES:
         raise ValueError(kind)
+    _product_kind, template = _PRODUCT_TEMPLATES[kind]
+    env = (template
+           .replace("{{from}}", f"{sender}@{team}")
+           .replace("{{message_id}}", mid)
+           .replace("{{description}}", description)
+           .replace("{{task_id}}", task_id))
     return env + (f"\n\n{body}" if body else "")
 
 

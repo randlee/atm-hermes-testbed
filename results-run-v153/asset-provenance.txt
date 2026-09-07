@@ -12,3 +12,7 @@ ee00a73aee785f47c125d4b31ac50056c39f7012ae76e76da3b9d7dd81ed7905  assets/atm_1.5
 2892e8490053b7158e9c87bb72838955390200e5247d940d971bc79c267a7318  assets/hermes_atm-1.5.3-py3-none-any.whl
 880eef4e90e04a16bf5bfa0e8b8a2d047b59f76183076a4b7336a99cfd0f1203  assets/atm_graft-1.5.3-cp311-abi3-manylinux_2_17_aarch64.manylinux2014_aarch64.whl
 f55610658e1c2e0d2aaef730b4b2ab885f7f8ba00285ab372bfb14f2e3d5b40d  assets/herdr-linux-aarch64
+feac93d9d83345dec4ba79568b9b8e4d20a43ba35023505f79222d2e268a7f5a  testbed/test-tier-a.py
+0457352d5b0ba6d68b330e454f23141330c68dd2899897a2f6e4068223e67325  testbed/test-tier-b.py
+dc82df87c8af3bcd1d1552197eb9846f27e90977da75f083c70857bfdc252ad3  testbed/test-tier-d.py
+# (suite/v2 harness files docker-cp'd into digest-5d46dfbc container; image product layers untouched)

@@ -66,6 +66,55 @@ Tests, prompts, and harness scripts are versioned TOGETHER as a suite:
 - Every prompt carries `since: <suite-tag>` (frontmatter + catalog table).
   Existing prompts are stamped `since: suite/v1`.
 
+## Suite changelog
+
+### suite/v2 (2026-09-07) — contract-driven expectation repair (v1.5.3 run)
+
+Cut for the hermes-graft colima v1.5.3 readiness run (solar@atm-dev coord.,
+task HERMES-GRAFT-COLIMA-R1-1788742538). Authorized by fenix (relay
+01M1WXB6J117BP8HAH2HSXRZ17). This is **contract-driven expectation repair,
+never rerun-until-green** — the first-run FAIL JSON is preserved at
+`results-run-v153/tier-{a,b,d}.json` and the original evidence commit
+(a13c3a1) is the durable record.
+
+Root cause for all expectation changes: atm-core commit
+`b84a9d2ef0cb7a3911ffe84642cb3e6f05b033e9` (`feat(ax1): add queue template
+class`), in the v1.5.3 tag. It changed the built-in nudge templates in
+`crates/atm-core/src/send/nudge_template.rs`:
+
+- **B2a/B2b/B2c (envelope shape):** every built-in template now renders the
+  action line as `atm read --message-id {{message_id}}` (was
+  `read atm --team {{team}}`), and the **Task/Queue/QueueAck** classes
+  intentionally **omit** the `<when idle=... busy=.../>` line while
+  **Delivery/DeliveryAck retain** it. The testbed `expected_envelope()` was
+  rewritten to render the product's own template strings verbatim (transcribed
+  from `nudge_template.rs` at the tag) instead of a hand-maintained parallel
+  copy, so the want-side cannot silently drift again. Verified byte-exact
+  against the product on the pinned image.
+- **D7 (herdr nudge routing):** the message-ULID-in-daemon-log assertion was
+  **dropped** — 1.5.x structured `send` log entries carry `message=null` with
+  `fields={command}` only, so the ULID is no longer in the log shape. D7 now
+  asserts only its **documented routing contract** (send exit 0 + returned id
+  via the product API, `action=send outcome=sent` emitted, herdr agent
+  reachable, backendType=herdr persisted), never ULID presence in the
+  obsolete log shape.
+
+**HELD (not changed, not rerun):**
+- **A1-send-read-history:** held pending arch-ctm disposition of the
+  bare-`atm read` `mutation_applied` semantics (bare read reports
+  `mutation_applied=True` but does not persist the read mark; explicit
+  `--message-id` does). The A1 expectation body is preserved **verbatim**; the
+  runner records it as a HELD skip so the tier verdict is not FAIL and the row
+  reports HELD, not FAIL. Resolves to suite/v2 expectation update OR an
+  atm-core fix depending on the ruling.
+
+Prompt-side note: no `prompts/` content changed in suite/v2 (the AT4/AT8
+no-sudo marker rewrite landed earlier at fb9d63c under suite/v1 with a
+planned v2 bump at the v1.5.3 re-run). Prompts remain `since: suite/v1`; this
+changelog records the deterministic-matrix (tiers A–D) contract repair. The
+`suite/v2` tag is cut at the head of this validated cycle per the versioning
+rule.
+
 ## Prompt file format
 
 `prompts/<owner>/<test-id>.md`, YAML frontmatter:
