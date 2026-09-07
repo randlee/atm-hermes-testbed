@@ -12,10 +12,11 @@ FORK_WT=~/Documents/github/hermes-agent-randlee-worktrees/testbed-build
 # (wheelhouse retired 2026-09-04 — wheels via WHEELS_DIR only)
 
 # ── Platform switch (AR: #1097 ships a native aarch64 tarball from 1.4.6 on) ──
-# TESTBED_PLATFORM=amd64 (default; qemu emulation on Apple Silicon)
+# TESTBED_PLATFORM defaults to the host arch (arm64 on Apple Silicon, amd64 on Intel);
 # TESTBED_PLATFORM=arm64 (native arm64; requires the aarch64 atm tarball —
 #   provided by the prerelease dispatch via ATM_TARBALL)
-TESTBED_PLATFORM="${TESTBED_PLATFORM:-amd64}"
+# Default = host architecture (Apple Silicon -> arm64, Intel -> amd64); override only for a cross-arch run.
+TESTBED_PLATFORM="${TESTBED_PLATFORM:-$(if [ "$(uname -m)" = arm64 ] || [ "$(uname -m)" = aarch64 ]; then echo arm64; else echo amd64; fi)}"
 case "$TESTBED_PLATFORM" in
   amd64) ATM_ARCH=x86_64; GRAFT_WHL_ARCH=manylinux_2_17_x86_64; DOCKER_PLAT=linux/amd64 ;;
   arm64) ATM_ARCH=aarch64; GRAFT_WHL_ARCH=manylinux_2_17_aarch64; DOCKER_PLAT=linux/arm64 ;;

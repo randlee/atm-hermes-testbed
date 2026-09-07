@@ -11,7 +11,9 @@ V=1.5.7                                   # ATM version under test; patch-bumped
 SHA=$(git -C ~/Documents/github/atm-core rev-parse "prerelease/v$V^{commit}")   # the tagged COMMIT (the tag itself is an annotated object; without ^{commit} the CI lookup finds nothing)
 O=fenix@atm-dev                           # oversight agent (on this host)
 F=atm-hermes-testbed.local                # fixture name = the container's peer host name
-export TESTBED_PLATFORM=arm64             # Apple Silicon host: native arm64 image
+# TESTBED_PLATFORM is not needed: build.sh and run.sh default to the host architecture.
+# Per-host secrets: env/allowlist.env and env/peer-key live only in the checkout (gitignored, never committed).
+# A fresh clone or worktree needs them copied from the existing checkout on this host before ./run.sh --gateway.
 ```
 
 Where each component comes from (no local builds, ever):

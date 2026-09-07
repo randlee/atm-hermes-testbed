@@ -4,7 +4,7 @@
 # Peer mode is ON by default with MAC_NAME = this host (hostname -s): the
 # container daemon and the host daemon are cross-host peers from the start, so
 # the oversight agent sends test sentences and receives reports over ATM.
-# Env: TESTBED_PLATFORM=amd64 (default) | arm64 (native arm64, from 1.4.6 on)
+# Env: TESTBED_PLATFORM=arm64|amd64 (default: host arch)
 # Isolation guarantees (non-negotiable):
 #   - NO host mounts: hermes state = /opt/data, atm state = /root/.atm (in-container)
 #   - env: ONLY env/allowlist.env (if present & non-empty); never the host ~/.hermes/.env
@@ -25,7 +25,8 @@ fi
 PERSIST=""
 PEER="$(hostname -s)"
 ARGS=""
-TESTBED_PLATFORM="${TESTBED_PLATFORM:-amd64}"
+# Default = host architecture (Apple Silicon -> arm64, Intel -> amd64); override only for a cross-arch run.
+TESTBED_PLATFORM="${TESTBED_PLATFORM:-$(if [ "$(uname -m)" = arm64 ] || [ "$(uname -m)" = aarch64 ]; then echo arm64; else echo amd64; fi)}"
 case "$TESTBED_PLATFORM" in
   amd64) DOCKER_PLAT=linux/amd64 ;;
   arm64) DOCKER_PLAT=linux/arm64 ;;
