@@ -118,7 +118,7 @@ headless CLI, as the hermes user from the profile dir (loki's proof recipe, rehe
 
 ```sh
 # h <skill> "<sentence>": -p default pins the profile root (skills are read only from $HERMES_HOME/skills),
-# --skills preloads the named skill, --yolo --accept-hooks make it unattended (skillrx, hermes 0.20.0).
+# --skills preloads the named skill, --yolo --accept-hooks make it unattended (skillrx; fork base Hermes 0.21.0).
 h() { docker exec hermes-testbed sh -c "printf '%s\n' \"$2\" > /tmp/smoke-prompt.md; chmod 644 /tmp/smoke-prompt.md"
       docker exec -e ATM_IDENTITY=hermes -e ATM_TEAM=testbed hermes-testbed hermes -p default chat --query-file /tmp/smoke-prompt.md \
         --skills "$1" -m claude-haiku-4-5-20251001 --provider anthropic --yolo --accept-hooks --max-turns 60 --in /opt/data; }
@@ -141,10 +141,13 @@ h atm-nudge-roundtrip "run the atm-nudge-roundtrip skill as responder on fixture
 
 The same seven sentences, same skills, run on this host against the local team (fixture `$M`, no peer)
 by sending them to a local agent with `atm send <agent> --stdin`; the reports differ only in the `fixture`
-line. Reports arrive in `$O`'s inbox: `atm list --unread --json`, `atm read --message-id <id>`.
-Budget: one skill is 1–3 minutes; if a report has not arrived in 10 minutes, read the agent
+line. Everything arrives in `$O`'s inbox (`atm list --unread --json`, `atm read --message-id <id>`),
+and nobody waits wondering: every skill's first action is one line `ATM TEST START skill: … agent: …`
+(within ~30 s of the sentence), every 60 s of waiting on a deadline one line `ATM TEST WAIT … <elapsed>s/<deadline>s`,
+then the one report. Deadlines are short: 120 s for an ack, 300 s for a partner's message; a skill is
+1–3 minutes end to end. No START within 60 s = the agent did not launch: read it
 (`docker exec hermes-testbed herdr pane read <pane> --source recent --lines 60`, or the `hermes chat`
-output) — that is a finding for the post-mortem, not a reason to stop the other sentences.
+output) — a finding for the post-mortem, not a reason to stop the other sentences.
 
 ## 6. Post-mortem
 
