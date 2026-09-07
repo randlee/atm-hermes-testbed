@@ -103,6 +103,13 @@ git add results-run-v<ver> assets/asset-provenance.txt && git commit && git push
 
 ## Step 5 — final report (Rand directive 2026-08-31)
 
+Durable readiness record (atm-core side, solar@atm-dev):
+`docs/runbooks/hermes-graft-colima-integration.md` — atm-core draft PR
+[#1276](https://github.com/randlee/atm-core/pull/1276) (commit 0db13f3b0).
+It cites THIS runbook + testbed main as the authoritative implementation and
+leaves mutable operating commands here; cite the PR/doc path back in cycle
+reports from the v1.5.3 run on (one source of truth each side).
+
 Assemble the full cycle report into **atm-core `reports/colima/`** (fenix
 correction 2026-08-31: there is no `sites/reports/` — repo-root
 `reports/<family>/` is the convention, `site/reports/` is published-HTML only),
