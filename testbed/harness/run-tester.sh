@@ -19,6 +19,7 @@ try:
 except Exception:
     d = {}
 d.update({"hasCompletedOnboarding": True, "theme": "dark", "bypassPermissionsModeAccepted": True})
+d.setdefault("projects", {}).setdefault("/opt/testbed", {})["hasTrustDialogAccepted"] = True
 json.dump(d, open(p, "w"))
 PY
   exec claude --model haiku --dangerously-skip-permissions \
