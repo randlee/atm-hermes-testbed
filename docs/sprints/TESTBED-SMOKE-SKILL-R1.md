@@ -28,7 +28,11 @@ atm-hermes-testbed repo so the containerized hermes-agent (fork) carries it.
   derived from the skillrx checklist; fixed report shape; hard redaction
   rules. v1.1.0 correction: recipient is a PEER fixture member, never SELF
   (ATM rejects self-addressed sends — `SelfAddressedSendInvalid`); peer-side
-  observation runs via terminal under the peer identity.
+  observation runs via terminal under the peer identity. v1.2.0 correction:
+  check 12's peer substep is explicitly terminal-only, and PASS-with-note is
+  scoped to genuine ack-state codes (`AckNotPending`) — any other error,
+  including a misexecuted peer substep, is FAIL (a release gate must not
+  mask misexecution as a pass).
 - `Dockerfile` — one COPY baking the skill into `/opt/hermes/skills/devops/`;
   boot-time `tools/skills_sync.py` lands it in `$HERMES_HOME/skills`
   (fresh or existing volume). No other image change.

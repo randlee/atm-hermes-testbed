@@ -1,7 +1,7 @@
 ---
 name: atm-smoke-test
 description: Use when asked to run the ATM smoke test. Exercises the native atm tools (atm_send/atm_read/atm_list/atm_ack) and CLI interop against the local ATM daemon and produces one sanitized PASS/FAIL report.
-version: 1.1.0
+version: 1.2.0
 metadata:
   hermes:
     tags: [atm, smoke-test, integration]
@@ -72,14 +72,22 @@ container.
     (or `atm list` if `--json` is unsupported). Evidence: PASS if the CLI
     lists mail without error while the native tools also work (same daemon,
     same inbox); FAIL on CLI error.
-12. **ack-round-trip** — terminal, as PEER: send YOUR identity a message
-    with the requires-ack option (`atm send <you> --team <team>
-    --requires-ack --stdin` with body "SMOKE-ACK"). Then acknowledge it from
-    your own identity: `atm_ack` native tool if registered, else
-    `atm ack <message_id> "SMOKE ack ok"`. Evidence: PASS if the ack
-    succeeds and returns/confirms a reply message id; PASS-with-note if the
-    ack is rejected with a clean "not pending acknowledgement" error (record
-    the code); FAIL only on a crash/non-envelope.
+12. **ack-round-trip** — two substeps:
+    (a) PEER-side send, VIA TERMINAL ONLY (not your native atm_send — that is
+        bound to YOUR identity and a self-send is rejected):
+        `ATM_IDENTITY=<peer> ATM_TEAM=<team> atm send <your-identity>
+        --team <team> --requires-ack --stdin` with body "SMOKE-ACK". Record
+        the returned message_id; PASS requires exit 0 and a message_id.
+    (b) Acknowledge it from YOUR identity: `atm_ack` native tool if
+        registered, else terminal `atm ack <message_id> "SMOKE ack ok"`.
+    Evidence/verdict for the ITEM: PASS if (a) returned a message_id AND (b)
+    the ack succeeded (reply message id returned). PASS-with-note ONLY if
+    (a) succeeded but (b) is rejected with a genuine ack-state code —
+    `not pending acknowledgement` / `AckNotPending` (record the code); that
+    is a valid mailbox-state outcome. Any OTHER error in (a) or (b)
+    (including `SelfAddressedSendInvalid`, which means the peer substep was
+    wrongly run as your own identity) is FAIL — record the code. Never a
+    crash/non-envelope.
 
 ## Report
 
