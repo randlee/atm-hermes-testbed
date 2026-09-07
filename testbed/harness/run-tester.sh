@@ -20,6 +20,11 @@ except Exception:
     d = {}
 d.update({"hasCompletedOnboarding": True, "theme": "dark", "bypassPermissionsModeAccepted": True})
 d.setdefault("projects", {}).setdefault("/opt/testbed", {})["hasTrustDialogAccepted"] = True
+key = os.environ.get("ANTHROPIC_API_KEY", "")
+if key:
+    approved = d.setdefault("customApiKeyResponses", {}).setdefault("approved", [])
+    if key[-20:] not in approved:
+        approved.append(key[-20:])
 json.dump(d, open(p, "w"))
 PY
   exec claude --model haiku --dangerously-skip-permissions \
