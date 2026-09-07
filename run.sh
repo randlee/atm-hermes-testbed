@@ -1,6 +1,9 @@
 #!/bin/sh
 # hermes-docker-testbed — run script
-# Usage: ./run.sh [--persist NAME] [--gateway] [--peer MAC_NAME]
+# Usage: ./run.sh [--persist NAME] [--gateway] [--peer MAC_NAME] [--no-peer]
+# Peer mode is ON by default with MAC_NAME = this host (hostname -s): the
+# container daemon and the host daemon are cross-host peers from the start, so
+# the oversight agent sends test sentences and receives reports over ATM.
 # Env: TESTBED_PLATFORM=amd64 (default) | arm64 (native arm64, from 1.4.6 on)
 # Isolation guarantees (non-negotiable):
 #   - NO host mounts: hermes state = /opt/data, atm state = /root/.atm (in-container)
@@ -20,7 +23,7 @@ if git -C "$HERE" ls-files --error-unmatch env/allowlist.env >/dev/null 2>&1; th
   exit 1
 fi
 PERSIST=""
-PEER=""
+PEER="$(hostname -s)"
 ARGS=""
 TESTBED_PLATFORM="${TESTBED_PLATFORM:-amd64}"
 case "$TESTBED_PLATFORM" in
@@ -33,6 +36,7 @@ while [ $# -gt 0 ]; do
     --persist) PERSIST="$2"; shift 2 ;;
     --gateway) ARGS="$ARGS -e HERMES_GATEWAY=1"; shift ;;
     --peer) PEER="$2"; shift 2 ;;
+    --no-peer) PEER=""; shift ;;
     *) echo "unknown arg: $1"; exit 1 ;;
   esac
 done
