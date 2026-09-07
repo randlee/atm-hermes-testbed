@@ -21,6 +21,8 @@ The test is identical on every fixture. Only the report's `fixture` line differs
 
 Record PASS or FAIL for every step with the observable that decided it.
 
+0. **Start line.** Send the start line from `../atm-smoke/REPORT.md` (`ATM TEST START …`) to the requester
+   before anything else. Observable: message id.
 1. **Daemon answers.** `atm doctor --json` returns exit 0 within 10 s.
    Observable: `.summary.status`, `.client_context.version`, `.daemon_context.version`.
    FAIL if the command errors, times out, or the two versions differ.

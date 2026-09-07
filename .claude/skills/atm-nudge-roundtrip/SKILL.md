@@ -13,23 +13,27 @@ Two roles, one skill. The request says which role you are.
 
 ## Tester steps
 
+0. **Start line.** Send the start line from `../atm-smoke/REPORT.md` (`ATM TEST START …`) to the requester
+   before anything else. Observable: message id.
 1. **Send.** `atm send <hermes agent> --requires-ack --stdin <<'EOF'` with the single line
    `atm-nudge-roundtrip <run-id>: ack this message with reply "roundtrip <run-id>"` where run-id is
    the current unix time. Observable: message id, exit code.
-2. **Ack arrives.** Poll `atm list --unread --json` every 10 s for up to 300 s until a row whose `from`
+2. **Ack arrives.** Poll `atm list --unread --json` every 10 s for up to 120 s (a wait line to the requester at 60 s) until a row whose `from`
    is the agent's bare name (`hermes`, never `hermes@testbed`) and whose summary contains
    `roundtrip <run-id>` appears; read it. Observable: seconds, or timeout. Never conclude before the
-   deadline; a reply missing at 60 s or 150 s is not a result. Timeout is FAIL, cause
-   `no ack within 300 s` (on a fixture whose gateway cannot inject nudges, atm-core #1307, the
+   deadline; a reply missing at 30 s or 90 s is not a result. Timeout is FAIL, cause
+   `no ack within 120 s` (on a fixture whose gateway cannot inject nudges, atm-core #1307, the
    responder is started by sentence instead and the ack still arrives; a timeout is then a real FAIL).
 3. **State.** `atm list --pending-ack --json`: the id from step 1 is no longer pending.
    Observable: present yes/no.
 
 ## Responder steps (Hermes agent)
 
+0. **Start line.** Send the start line from `../atm-smoke/REPORT.md` (`ATM TEST START …`) to the requester
+   before anything else. Observable: message id.
 1. **Nudge received.** You received an `<atm …>` block naming a message id. Observable: the id.
    If you were started by the sentence instead of a nudge (a fixture whose gateway cannot inject,
-   atm-core #1307), poll `atm list --pending-ack --json` every 10 s for up to 600 s for a row whose
+   atm-core #1307), poll `atm list --pending-ack --json` every 10 s for up to 300 s (a wait line to the requester every 60 s) for a row whose
    `summary` starts `atm-nudge-roundtrip`, take its `message_id`, and write this step as
    `PASS Nudge received — none (polled, #1307), id <id>, <seconds>s`.
 2. **Read by id.** `atm_read(message_id=<id>)`. Observable: `count` (must be 1); FAIL with the code
@@ -44,4 +48,5 @@ Two roles, one skill. The request says which role you are.
 Read `../atm-smoke/REPORT.md` (sibling skill directory) before writing: the report is that template
 filled in, plain text, skill name `atm-nudge-roundtrip`, first step line states the role, nothing
 before or after it. Every step line is PASS, FAIL or SKIP; PENDING is not a result. The report is
-sent once, after the last step finished or its deadline passed, never earlier.
+sent once, after the last step finished or its deadline passed, never earlier; start and wait lines
+precede it (see the template).

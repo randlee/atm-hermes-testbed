@@ -28,13 +28,16 @@ Partner = the agent named in the request; the partner runs this same skill at th
 each side sends one message and handles the other's. ATM rejects self-addressed sends, so a partner
 is required. Run-id = current unix time, used in your one-line body.
 
+S. **Start line.** Send the start line from `REPORT.md` (`ATM TEST START …`) to the requester before
+   anything else; not a report step.
 0. **Self round trip first.** Exactly step 4 of `atm-setup-environment` (native: send to yourself;
    CLI: `atm send <you> --host localhost`), read by id, gone from unread. Observable: id, `count`,
    `mutation_applied`. If this fails, the partner steps still run.
 1. **Send.** One line `atm-smoke <run-id> from <you>` to the partner, ack required (CLI
    `--requires-ack`; native `requires_ack=True`). Observable: message id A; FAIL with the code on any
    error (`MAY_HAVE_EXECUTED` is a FAIL).
-2. **Partner's message arrives.** Every 10 s for up to 600 s run exactly `atm list --pending-ack --json`
+2. **Partner's message arrives.** Every 10 s for up to 300 s run exactly `atm list --pending-ack --json`
+   (a wait line to the requester every 60 s, see `REPORT.md`)
    (native: `atm_list()`) and look in `rows[]` for `from` == the partner's bare name (`tester`, never
    `tester@testbed`), `summary` starting `atm-smoke`, `read` false; note its `message_id` B. Parse the
    JSON with python3 (`jq` is not installed on every fixture). It may already be there before your own send: check first.
@@ -56,5 +59,5 @@ is required. Run-id = current unix time, used in your one-line body.
 
 ## Report
 
-Exactly one message to the requester, template in `REPORT.md` next to this file, skill name
+After the start line and any wait lines, exactly one report to the requester, template in `REPORT.md` next to this file, skill name
 `atm-smoke`, `tools:` set to what you used.
