@@ -23,7 +23,7 @@ Where each component comes from (no local builds, ever):
 | ATM daemon + CLI | `prerelease-archive.yml` run for tag `prerelease/v$V`, artifact `aarch64-unknown-linux-gnu` | the tag |
 | hermes_atm + atm_graft wheels | `ci.yml` run for commit `$SHA`, artifact `hermes-atm-wheels-linux-aarch64` | the tag's commit |
 | herdr | GitHub release `herdrdev/herdr` `v0.8.2`, sha256-checked in `build.sh` (same version as the host) | `build.sh` |
-| hermes-agent | fork `~/Documents/github/hermes-agent-randlee`, `origin/main`, built into `loki/hermes-testbed:base` | fork main (named-release + canonical patch pinning is the HERMES-PATCH-MODEL-R1 track) |
+| hermes-agent | fork `randlee/hermes-agent` `origin/main` head at build time (loki): `build.sh base` fetches origin/main, resets the detached worktree `hermes-agent-randlee-worktrees/testbed-build` to that SHA, fails closed if `inject_internal_message` is missing from `gateway/run.py`, builds `loki/hermes-testbed:base`. Not a named Hermes release + patch: that composition already happened on fork main via the sync PR (upstream release base + the ATM stack). The citable pin is the SHA the build prints as `base context: <sha> <subject>` (in-image stamp `/opt/hermes/.hermes_build_sha` pending loki's HERMES_GIT_SHA PR) | `./build.sh base` (loki builds it every few days; the runbook rebuilds it as part of `build.sh all`) |
 
 ## 1. Clean
 

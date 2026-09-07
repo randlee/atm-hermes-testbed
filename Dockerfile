@@ -33,6 +33,13 @@ RUN apt-get -o Acquire::Retries=3 update && \
 ARG HERDR_BIN=herdr-linux-x86_64
 COPY --chmod=0755 assets/${HERDR_BIN} /usr/local/bin/herdr
 
+# hmux — herdr-native ATM team launcher (vendored from scmux/scripts, verbatim).
+# hmux sys.path-inserts its own dir and imports hmux_core/hmux_backend, so all
+# three files must share /usr/local/bin. Requires python3 >= 3.11 (tomllib).
+COPY --chmod=0755 testbed/hmux/hmux /usr/local/bin/hmux
+COPY --chmod=0644 testbed/hmux/hmux_core.py /usr/local/bin/hmux_core.py
+COPY --chmod=0644 testbed/hmux/hmux_backend.py /usr/local/bin/hmux_backend.py
+
 # atm + atm-daemon from the GitHub Release tarball (the installer path).
 # Filenames parametrized so pre-release drops (ATM_TARBALL env override in
 # build.sh) install through the identical COPY/install path.
@@ -88,7 +95,9 @@ COPY --chmod=0755 testbed/harness/freeze-daemon.sh /opt/testbed/harness/freeze-d
 COPY --chmod=0755 testbed/harness/at8-calibrate.sh /opt/testbed/harness/at8-calibrate.sh
 COPY --chmod=0755 testbed/harness/test-at8-calibrate.sh /opt/testbed/harness/test-at8-calibrate.sh
 COPY --chmod=0755 testbed/harness/install-claude-code.sh /opt/testbed/harness/install-claude-code.sh
+COPY --chmod=0755 testbed/harness/run-tester.sh /opt/testbed/harness/run-tester.sh
 COPY --chmod=0755 testbed/harness/setup-mtls.sh /opt/testbed/harness/setup-mtls.sh
+COPY --chmod=0755 testbed/harness/setup-peer.sh /opt/testbed/harness/setup-peer.sh
 
 # Testbed runtime lives entirely inside the container:
 #  - hermes state under /opt/data (never host-mounted)
