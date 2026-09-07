@@ -1,6 +1,8 @@
 # ATM test report template
 
-Every ATM test skill sends three kinds of line to the requester, all plain text, all with
+The requester is the report address named in the sentence that started you (`send the report to
+<agent@team.host>`), copied verbatim with its `.host` suffix — never the sender of the nudge or of the
+sentence. Every ATM test skill sends three kinds of line to that address, all plain text, all with
 `atm send <requester> --stdin` (native: `atm_send`):
 
 1. **Start line, first action of the skill, before any step** — nobody should wonder whether the
@@ -26,6 +28,9 @@ steps:
 elapsed: <seconds>s
 ```
 
+`result` is PASS only when every step line is PASS; one FAIL makes the result FAIL (<passed>/<total>
+counts every step, step 0 included). SKIP is allowed only for a step that cannot run because an
+earlier step's output it needs does not exist (no partner message → nothing to peek, read, ack).
 A FAIL in one step never stops the run: keep going, finish every remaining step, then report once.
 Every step line is PASS, FAIL or SKIP; never PENDING — a step that is waiting on a deadline is not
 finished, and the report is sent only after the last deadline has passed or been met.
