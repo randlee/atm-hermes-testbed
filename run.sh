@@ -77,7 +77,7 @@ docker exec "$NAME" sh -c '[ -x /opt/testbed/harness/setup-mtls.sh ] && /opt/tes
   2>&1 | tail -2 || true
 docker logs "$NAME" 2>&1 | head -20
 echo "---"
-docker exec "$NAME" sh -c 'hermes --version; atm --version; herdr --version' 2>&1 | head -3
+docker exec "$NAME" sh -c 'hermes --version | head -1; atm-daemon --version; herdr --version' 2>&1 | head -3
 
 if [ -n "$PEER" ]; then
   # Cross-host peer trust, both directions, every start. Nothing manual is left
@@ -100,10 +100,11 @@ if [ -n "$PEER" ]; then
   else
     echo "WARN: no launchd atm-daemon found; restart the host daemon by hand so it loads the new trust entry"
   fi
+  # Host -> container over the peer link needs the fixture name to resolve AND atm-core #1309
+  # (the daemon dials the fixed port 43101, not the trust entry's 43102). Until #1309 lands the
+  # link is used container -> host only (reports); sentences go in via `docker exec -i`. Warn, never stop.
   if ! grep -q "$ATM_PEER_NAME" /etc/hosts; then
-    echo "FATAL: /etc/hosts lacks the fixture name. One-time step (needs sudo):"
-    echo "  echo '127.0.0.1 $ATM_PEER_NAME' | sudo tee -a /etc/hosts"
-    exit 1
+    echo "note: /etc/hosts lacks '127.0.0.1 $ATM_PEER_NAME' (only needed for host->container sends, blocked by atm-core #1309 anyway)"
   fi
   # sshd only runs in peer mode (--no-peer runs stay fully walled)
   docker exec "$NAME" sh -c 'mkdir -p /run/sshd && /usr/sbin/sshd' || \

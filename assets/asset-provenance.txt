@@ -1,3 +1,3 @@
-atm_tarball=atm_1.5.6_aarch64-unknown-linux-gnu.tar.gz sha256=2238d2b90dcde8824f2ab04d56d49fe7b2eccded7fe8f0614ba0321548672f2d
-name=hermes_atm-1.5.6-py3-none-any.whl sha256=0cad02e8d8219bebadeaf3b1fd7a54d9e525ffffb56c3ea77145a55ef730acf1
-name=atm_graft-1.5.6-cp311-abi3-manylinux_2_17_aarch64.manylinux2014_aarch64.whl sha256=5fc950f180443ad09d3b97a21000b7cf2dcbc901fbc40f77754f074a37435a68
+atm_tarball=atm_1.5.7_aarch64-unknown-linux-gnu.tar.gz sha256=e29a9bf9469706efeead187640258d3f97b4d669e6e76f7a0997f3a76ae73593
+name=hermes_atm-1.5.7-py3-none-any.whl sha256=d27859435508ee8f9b2382d585c901325908be24c7ac436a226e80f530de2d7c
+name=atm_graft-1.5.7-cp311-abi3-manylinux_2_17_aarch64.manylinux2014_aarch64.whl sha256=a7f24ff3e7419684b01c76dd1693951d46c74b6e4d0069ab82c65f11df1289db

@@ -29,13 +29,11 @@ Where each component comes from (no local builds, ever):
 | herdr | GitHub release `herdrdev/herdr` `v0.8.2`, sha256-checked in `build.sh` (same version as the host) | `build.sh` |
 | hermes-agent | fork `randlee/hermes-agent` `origin/main` head at build time (loki): `build.sh base` fetches origin/main, resets the detached worktree `hermes-agent-randlee-worktrees/testbed-build` to that SHA, fails closed if `inject_internal_message` is missing from `gateway/run.py`, builds `loki/hermes-testbed:base`. The citable pin is the SHA the build prints as `base context: <sha> <subject>` (in-image stamp `/opt/hermes/.hermes_build_sha` pending loki's HERMES_GIT_SHA PR) | `./build.sh base` |
 
-## 0. One-time on a new Mac (needs sudo; Rand)
+## 0. One-time on a new Mac
 
-```sh
-echo "127.0.0.1 atm-hermes-testbed.local" | sudo tee -a /etc/hosts
-```
-
-`run.sh` checks for this line and refuses to continue without it. Everything else is scripted.
+Nothing today. When atm-core #1309 lands (daemon dials the trust entry's port), host → container sends
+over the peer link additionally need `echo "127.0.0.1 atm-hermes-testbed.local" | sudo tee -a /etc/hosts`
+(sudo; Rand). `run.sh` prints a note when the line is missing and continues.
 
 ## 1. Clean
 
