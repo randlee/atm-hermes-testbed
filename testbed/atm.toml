@@ -19,3 +19,13 @@ env = { ATM_IDENTITY = "stub-alpha", ATM_TEAM = "testbed" }
 [[rmux.windows.panes]]
 name = "stub-beta"
 env = { ATM_IDENTITY = "stub-beta", ATM_TEAM = "testbed" }
+
+# ATM test agent (Claude Code, ATM_IDENTITY=tester). Launch via a su-wrapper
+# rather than `model`: claude refuses --dangerously-skip-permissions as root,
+# so hmux's `model` path (which runs the pane shell as root) is unusable here.
+# run-tester.sh re-execs claude as the non-root `hermes` user (run-prompts.sh
+# treatment). See testbed/harness/run-tester.sh.
+[[rmux.windows.panes]]
+name = "tester"
+command = "/opt/testbed/harness/run-tester.sh"
+env = { ATM_IDENTITY = "tester", ATM_TEAM = "testbed" }
