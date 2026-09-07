@@ -67,7 +67,24 @@ docker exec hermes-testbed /opt/testbed/harness/run-prompts.sh AT0   # … AT1..
 - Each run writes a `prompt-report-1` JSON to `/opt/testbed/results/`;
   the harness echoes PASS/FAIL/SKIP.
 - Harness invariants (do not regress):
-  - sudoers scoped ONLY to `restart-daemon.sh` + `freeze-daemon.sh`;
+  - **NO-SUDO model (solar P0 ruling 2026-09-07, implemented at main 41fc546):**
+    the image contains no `sudo` package and no sudoers entries; the daemon
+    lifecycle hooks refuse to run as non-root. The outer coordinator invokes
+    them OUT OF BAND via root-default
+    `docker exec hermes-testbed /opt/testbed/harness/<hook>`; the unprivileged
+    fixture agent never execs a hook — it coordinates through marker files
+    under `/opt/testbed/results/markers/` (chowned to the agent):
+    - AT4: agent `touch markers/at4-ready` → hook restarts daemon →
+      `markers/at4-done` (UTC ISO content); agent polls, then post-restart sends.
+    - AT8 branch (b): hook armed with `--trigger markers/at8-trigger
+      --after 300`; agent `touch`es the trigger &&-chained immediately before
+      its send, so the 300ms delay starts at agent-owned trigger time
+      (persist-then-freeze, reply past the 3.25s budget). `markers/at8-armed`
+      / `markers/at8-done` bound the window.
+    - Coordinator clears stale markers (`at4-ready`, `at8-trigger`) before a
+      run; hooks also clear their own at arm time.
+    - AT4/AT8 prompt text update to the marker protocol is pending fenix's
+      sign-off (prompts/atm-team/ is his lane; drafts sent 2026-09-07).
   - daemon kills use exact `pkill -x atm-daemon` (never `-f` — the agent's own
     argv contains the prompt text and `-f` self-killed AT4);
   - `restart-daemon.sh` deletes stale `local-http.json` BEFORE relaunch and
