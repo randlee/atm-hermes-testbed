@@ -16,7 +16,9 @@ MAC_FP="${2:?usage: setup-peer.sh <mac-host> <mac-fingerprint>}"
 # C3). NEVER advertise localhost — the host's own localhost trust entry pins
 # the host daemon cert, so any localhost-addressed dial would pin-mismatch.
 atm peer interface set --bind 0.0.0.0:43101 --advertise-host atm-hermes-testbed.local --enabled >/dev/null
-atm peer trust add --host "$MAC_HOST" --fingerprint "$MAC_FP" --https-port 43101 --yes >/dev/null
+# Idempotent: a second run (or a baked/persisted entry) replaces instead of failing.
+atm peer trust add --host "$MAC_HOST" --fingerprint "$MAC_FP" --https-port 43101 --yes >/dev/null 2>&1 || \
+  atm peer trust replace --host "$MAC_HOST" --fingerprint "$MAC_FP" --https-port 43101 --yes >/dev/null
 
 pkill -9 -x atm-daemon 2>/dev/null || true
 sleep 1
