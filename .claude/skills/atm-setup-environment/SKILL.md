@@ -39,9 +39,12 @@ Record PASS or FAIL for every step with the observable that decided it.
      rejected by design; the host-qualified form is the self-send), then
      `atm read --message-id <id> --json`, then `atm list --unread --json`.
    Observable: message id; `count` 1 and `mutation_applied` true; id absent from unread afterwards.
-   If the send fails with `no enabled trusted peer matches 'localhost'`, the fix is environment:
-   `atm peer trust add --host localhost --fingerprint $(atm peer certificate show --json | python3 -c 'import json,sys;print(json.load(sys.stdin)["fingerprint"])') --yes`,
-   then retest. Never print the fingerprint in the report.
+   If the send fails with `no enabled trusted peer matches 'localhost'` or a peer-trust/mTLS-authority
+   error, the fixture's bring-up did not register the localhost trust entry before the daemon started
+   (the trust store is snapshotted at daemon start, so adding it now changes nothing until the daemon
+   restarts, which is not yours to do). Do not add, replace or edit trust entries; do not try other
+   ports. Record FAIL — cause: `localhost trust entry missing at daemon start (bring-up)`; fix: none
+   possible; and continue with step 5.
 
 5. **Cross-host peer (when the fixture has one).** If the request names a peer host (the testbed
    always does: host and container are peers from the start), `atm peer trust list --json` shows that
