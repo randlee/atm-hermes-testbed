@@ -19,6 +19,8 @@ elapsed: <seconds>s
 ```
 
 A FAIL in one step never stops the run: keep going, finish every remaining step, then report once.
+Every step line is PASS, FAIL or SKIP; never PENDING — a step that is waiting on a deadline is not
+finished, and the report is sent only after the last deadline has passed or been met.
 On any FAIL, before sending the report:
 1. run `../atm-troubleshoot/SKILL.md` for that step and get the cause;
 2. if the fix is within your reach on the fixture (roster entry, your own gateway or tool session,
