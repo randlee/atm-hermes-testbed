@@ -14,13 +14,18 @@ AS_HERMES="setpriv --reuid=hermes --regid=hermes --init-groups env HOME=/opt/dat
 export ATM_IDENTITY=stub-alpha ATM_TEAM=$TEAM
 
 # 1 (the self-send trust entry for localhost must exist BEFORE the daemon starts: trust is snapshotted at start)
-pkill -x atm-daemon 2>/dev/null || true; sleep 1
+pkill -x atm-daemon 2>/dev/null || true
+for i in $(seq 1 20); do pgrep -x atm-daemon >/dev/null 2>&1 || break; sleep 1; done   # a daemon killed mid-write still holds the db; starting over it fails
 FP=$(atm peer certificate show --json 2>/dev/null | python3 -c 'import json,sys; print(json.load(sys.stdin)["fingerprint"])')
 atm peer trust add --host localhost --fingerprint "$FP" --https-port 43101 --yes >/dev/null 2>&1 \
   || atm peer trust replace --host localhost --fingerprint "$FP" --https-port 43101 --yes >/dev/null 2>&1 || true
-rm -f /root/.atm/daemon/owner.lock /root/.atm/daemon/local-http.json
-nohup atm-daemon >/tmp/atm-daemon.log 2>&1 &
-for i in $(seq 1 30); do atm doctor --json >/dev/null 2>&1 && break; sleep 1; done
+start_daemon() {
+  rm -f /root/.atm/daemon/owner.lock /root/.atm/daemon/local-http.json
+  nohup atm-daemon >>/tmp/atm-daemon.log 2>&1 &
+  for i in $(seq 1 30); do atm doctor --json >/dev/null 2>&1 && return 0; pgrep -x atm-daemon >/dev/null 2>&1 || break; sleep 1; done
+  return 1
+}
+start_daemon || { echo "bringup: daemon start failed once ($(tail -1 /tmp/atm-daemon.log)); retrying"; sleep 2; start_daemon || echo "bringup: WARN daemon not answering (see /tmp/atm-daemon.log)"; }
 # 2
 chmod 711 /root; chmod 755 /root/.atm /root/.atm/daemon; chmod -R a+rX /root/.atm/daemon
 chmod -R a+rwX /root/.atm/db /root/.atm/logs
