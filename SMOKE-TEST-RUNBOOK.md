@@ -101,10 +101,14 @@ atm doctor --json | jq .summary
 docker exec hermes-testbed atm doctor --json | jq .summary
 docker exec hermes-testbed herdr agent list | jq '[.result.agents[]|{name,agent_status}]'     # tester idle
 docker exec hermes-testbed pgrep -af "[h]ermes gateway run"                                  # gateway up as hermes
-ATM_IDENTITY=fenix ATM_TEAM=atm-dev atm send tester@testbed.$F --requires-ack --stdin <<<"ack this message"
+docker exec -i -e ATM_IDENTITY=stub-alpha -e ATM_TEAM=testbed hermes-testbed atm send tester --requires-ack --stdin <<<"ack this message"
 ```
 
-The last line proves host → container; the tester's ack in `atm list --pending-ack` proves container → host.
+The last line proves the nudge path into the tester (`docker exec -i`: without `-i` the heredoc never
+reaches `--stdin`). Sentences go *into* the fixture this way, not over the peer link: the daemon dials
+every peer on the fixed port 43101 and ignores the trust entry's `https_port` (atm-core #1309), and on
+one machine 43101 belongs to the host daemon. Reports come *out* over the peer link (container → host
+works, verified). When #1309 lands, `t()` becomes `atm send tester@testbed.$F ...` from the host.
 
 ## 5. The run-book (seven sentences, seven reports)
 
@@ -120,7 +124,7 @@ headless CLI, as the hermes user from the profile dir (loki's proof recipe, rehe
 h() { docker exec hermes-testbed sh -c "printf '%s\n' \"$2\" > /tmp/smoke-prompt.md; chmod 644 /tmp/smoke-prompt.md"
       docker exec -e ATM_IDENTITY=hermes -e ATM_TEAM=testbed hermes-testbed hermes -p default chat --query-file /tmp/smoke-prompt.md \
         --skills "$1" -m claude-haiku-4-5-20251001 --provider anthropic --yolo --accept-hooks --max-turns 60 --in /opt/data; }
-t() { ATM_IDENTITY=stub-alpha ATM_TEAM=testbed atm send tester@testbed.$F --requires-ack --stdin <<<"$1"; }
+t() { docker exec -i -e ATM_IDENTITY=stub-alpha -e ATM_TEAM=testbed hermes-testbed atm send tester --requires-ack --stdin <<<"$1"; }
 ```
 
 Send in this order; the two smoke sentences together, the two roundtrip sentences together; otherwise wait
