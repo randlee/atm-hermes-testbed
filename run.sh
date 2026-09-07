@@ -92,6 +92,14 @@ if [ -n "$PEER" ]; then
     atm peer trust add --host "$ATM_PEER_NAME" --fingerprint "$ATM_CONTAINER_FP" --https-port "${PEER_HTTP_PORT:-43102}" --yes >/dev/null
   fi
   echo "peer trust: host trusts $ATM_PEER_NAME:${PEER_HTTP_PORT:-43102}; container trusts $PEER"
+  # The trust store is snapshotted at daemon start (crates/peer-tls): the host daemon must restart
+  # to see a new or replaced fixture fingerprint (the image's cert changes on every image build).
+  LABEL="$(launchctl list 2>/dev/null | awk '/com\.atm\.daemon/ {print $3; exit}')"
+  if [ -n "$LABEL" ]; then
+    launchctl kickstart -k "gui/$(id -u)/$LABEL" && echo "host daemon restarted ($LABEL)"
+  else
+    echo "WARN: no launchd atm-daemon found; restart the host daemon by hand so it loads the new trust entry"
+  fi
   if ! grep -q "$ATM_PEER_NAME" /etc/hosts; then
     echo "FATAL: /etc/hosts lacks the fixture name. One-time step (needs sudo):"
     echo "  echo '127.0.0.1 $ATM_PEER_NAME' | sudo tee -a /etc/hosts"
@@ -105,3 +113,7 @@ if [ -n "$PEER" ]; then
   docker cp "$NAME:/root/.ssh/testbed_peer_key" "$HERE/env/peer-key" 2>/dev/null && \
     chmod 600 "$HERE/env/peer-key" && echo "  peer key extracted: env/peer-key"
 fi
+
+# Everything inside the container: daemon (after trust), perms, herdr, roster, hermes-atm hook,
+# gateway restart, Claude Code tester via hmux. Rerunnable. See harness/bringup.sh.
+docker exec -e TESTBED_CHAT_ID="${TESTBED_CHAT_ID:-1}" "$NAME" /opt/testbed/harness/bringup.sh 2>&1 | grep "^bringup:"

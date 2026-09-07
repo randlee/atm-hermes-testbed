@@ -5,14 +5,16 @@ description: Verify the ATM daemon, roster and doctor are ready before any integ
 
 # atm-setup-environment
 
-One sentence triggers it: "run the atm-setup-environment skill and send the report to <agent@team>".
+One sentence triggers it: "run the atm-setup-environment skill and send the report to <agent@team.host>".
 The test is identical on every fixture. Only the report's `fixture` line differs.
 
 ## Inputs
 
 - `ATM_IDENTITY` / `ATM_TEAM`: your own identity (must already be set).
-- Expected roster: the `agent@team` list given in the request. If none is given, the roster is
-  whatever `atm teams` already holds and step 2 is a no-op.
+- Expected roster: only a list the request introduces with the words "expected roster:". The
+  report address is an address, never a roster entry. If no expected roster is given, the roster is
+  whatever `atm teams` already holds and step 2 is a no-op. Never create a team, and never touch a
+  team you are not a member of.
 - Fixture name: `$ATM_TEST_FIXTURE` if set, otherwise `hostname`.
 
 ## Steps
@@ -51,4 +53,7 @@ Record PASS or FAIL for every step with the observable that decided it.
 
 ## Report
 
-Send exactly one message to the requester, using the template `../atm-smoke/REPORT.md` (sibling skill directory), skill name `atm-setup-environment`.
+Send exactly one message to the address given in the request, copied verbatim including its
+`.host` suffix (`atm send <agent@team.host> --stdin <<'EOF' … EOF`; the suffix is what routes the
+report across hosts — without it the message lands in a local queue nobody reads). Use the template
+`../atm-smoke/REPORT.md` (sibling skill directory), skill name `atm-setup-environment`.
