@@ -28,11 +28,12 @@ Partner = the agent named in the request; the partner runs this same skill at th
 each side sends one message and handles the other's. ATM rejects self-addressed sends, so a partner
 is required. Run-id = current unix time, used in your one-line body.
 
-S. **Start line.** Send the start line from `REPORT.md` (`ATM TEST START …`) to the requester before
-   anything else; not a report step.
-0. **Self round trip first.** Exactly step 4 of `atm-setup-environment` (native: send to yourself;
-   CLI: `atm send <you> --host localhost`), read by id, gone from unread. Observable: id, `count`,
-   `mutation_applied`. If this fails, the partner steps still run.
+S. **Start line.** Send ONE line `ATM TEST START skill: atm-smoke fixture: <fixture> agent: <you>` to the
+   requester before anything else (see `REPORT.md`); never a second one; not a report step.
+0. **Self round trip first.** Send one line to yourself (native: `atm_send` to your own name; CLI:
+   `atm send <you> --host localhost --stdin`), list unread, read it by id, list again: it is gone from
+   unread. Observable: id, `count`, `mutation_applied`. Do not open or run any other skill for this.
+   If this fails, the partner steps still run.
 1. **Send.** One line `atm-smoke <run-id> from <you>` to the partner, ack required (CLI
    `--requires-ack`; native `requires_ack=True`). Observable: message id A; FAIL with the code on any
    error (`MAY_HAVE_EXECUTED` is a FAIL).
