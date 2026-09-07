@@ -48,8 +48,9 @@ Record PASS or FAIL for every step with the observable that decided it.
 
 5. **Cross-host peer (when the fixture has one).** If the request names a peer host (the testbed
    always does: host and container are peers from the start), `atm peer trust list --json` shows that
-   host `enabled`, and `atm send <requester> --host <peer-host> --stdin` with one line returns a
-   message id. Observable: enabled yes/no, message id. Missing trust is an environment fix
+   host `enabled`, and one line sent to the report address (`atm send <agent@team.host> --stdin`; the
+   report address lives on the peer host, that is the point of it — never probe a fixture-local agent
+   through the peer) returns a message id. Observable: enabled yes/no, message id. Missing trust is an environment fix
    (`atm peer trust add --host <peer-host> --fingerprint <its fingerprint> --https-port <port> --yes`,
    fingerprint from that host's `atm peer certificate show --json`; never print fingerprints), then
    retest. SKIP with that word when the request names no peer host.
