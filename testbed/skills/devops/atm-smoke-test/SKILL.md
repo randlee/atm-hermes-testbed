@@ -1,7 +1,7 @@
 ---
 name: atm-smoke-test
 description: Use when asked to run the ATM smoke test. Exercises the native atm tools (atm_send/atm_read/atm_list/atm_ack) and CLI interop against the local ATM daemon and produces one sanitized PASS/FAIL report.
-version: 1.0.0
+version: 1.1.0
 metadata:
   hermes:
     tags: [atm, smoke-test, integration]
@@ -23,9 +23,16 @@ observable outcome for validation checks).
 ## Identity
 
 Your ATM identity is the `ATM_IDENTITY`/`ATM_TEAM` environment you run under.
-"SELF" below means `<your-identity>@<your-team>.localhost` (e.g.
-`smoke-alpha@smoke.localhost`). If a check needs a recipient and none was
-given in your instructions, use SELF.
+"PEER" below means the recipient named in your instructions (e.g. "send the
+report to fenix@atm-dev" → PEER is `fenix@atm-dev`). If no recipient was
+named, register and use a stub peer `<your-identity>-peer` on your team:
+`atm teams add-member <team> <peer> --agent-type stub --home-dir
+/opt/testbed/smoke`. ATM REJECTS self-addressed sends
+(`SelfAddressedSendInvalid`), so no check may target your own identity.
+Where a check must observe the peer side (receipt, ack), drive it via the
+terminal with `ATM_IDENTITY=<peer> ATM_TEAM=<team> atm ...` — for a stub
+peer this is the sanctioned way to observe both sides inside the isolated
+container.
 
 ## Checks
 
@@ -46,17 +53,16 @@ given in your instructions, use SELF.
    "no-at-sign-here", "body": "SMOKE"}`. Evidence: PASS if rejected with a
    clean error code (record the code); FAIL if it succeeds or returns a
    non-envelope error.
-7. **send-self** — call `atm_send` with `{"to": "SELF", "body": "SMOKE <UTC
+7. **send-peer** — call `atm_send` with `{"to": "PEER", "body": "SMOKE <UTC
    timestamp>"}`. Evidence: PASS if the result contains `message_id` and
    outcome `sent`; record the message_id. FAIL with the error code otherwise.
 8. **error-recovery** — immediately after the previous check (whether it
    passed or failed), call `atm_list` with `{"selection": "all", "limit":
    5}`. Evidence: PASS if it returns a row list with `bucket_counts` (a
    prior rejected/failed call did not poison the session); FAIL otherwise.
-9. **list-contains-send** — inspect the `atm_list` rows from check 8 (or
-   re-list with limit 10 if check 7 succeeded but the row was not in the
-   first page). Evidence: PASS if check 7's `message_id` appears as a row;
-   FAIL if absent.
+9. **list-contains-send** — terminal, as the PEER identity:
+   `ATM_IDENTITY=<peer> ATM_TEAM=<team> atm list --json`. Evidence: PASS if
+   check 7's `message_id` appears in the peer's rows; FAIL if absent.
 10. **read-return-contract** — call `atm_read` with `{}` (no arguments).
     Evidence: PASS if the result is a JSON envelope containing `action`,
     `bucket_counts`, and `mutation_applied` (record `mutation_applied`'s
@@ -66,12 +72,14 @@ given in your instructions, use SELF.
     (or `atm list` if `--json` is unsupported). Evidence: PASS if the CLI
     lists mail without error while the native tools also work (same daemon,
     same inbox); FAIL on CLI error.
-12. **ack-self-message** — if check 7's message_id is present in your queue
-    as a readable message, call `atm_ack` on it with reply `"SMOKE ack ok"`.
-    Evidence: PASS if the ack succeeds OR fails with a clean error code
-    (record which; self-messages may not require ack — a clean
-    "not pending acknowledgement" error is PASS-with-note). FAIL only on a
-    crash/non-envelope.
+12. **ack-round-trip** — terminal, as PEER: send YOUR identity a message
+    with the requires-ack option (`atm send <you> --team <team>
+    --requires-ack --stdin` with body "SMOKE-ACK"). Then acknowledge it from
+    your own identity: `atm_ack` native tool if registered, else
+    `atm ack <message_id> "SMOKE ack ok"`. Evidence: PASS if the ack
+    succeeds and returns/confirms a reply message id; PASS-with-note if the
+    ack is rejected with a clean "not pending acknowledgement" error (record
+    the code); FAIL only on a crash/non-envelope.
 
 ## Report
 
@@ -91,12 +99,12 @@ items:
   4 validation-empty: PASS|FAIL <evidence>
   5 validation-wrong-fields: PASS|FAIL <evidence>
   6 validation-bad-address: PASS|FAIL <code>
-  7 send-self: PASS|FAIL <message_id or code>
+  7 send-peer: PASS|FAIL <message_id or code>
   8 error-recovery: PASS|FAIL <evidence>
   9 list-contains-send: PASS|FAIL <evidence>
   10 read-return-contract: PASS|FAIL mutation_applied=<value>
   11 cli-interop: PASS|FAIL <evidence>
-  12 ack-self-message: PASS|FAIL <evidence or code>
+  12 ack-round-trip: PASS|FAIL <evidence or code>
 verdict: PASS (12/12) | FAIL (<n>/12)
 ```
 
