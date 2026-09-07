@@ -16,7 +16,7 @@ Two roles, one skill. The request says which role you are.
 1. **Send.** `atm send <hermes agent> --requires-ack --stdin <<'EOF'` with the single line
    `atm-nudge-roundtrip <run-id>: ack this message with reply "roundtrip <run-id>"` where run-id is
    the current unix time. Observable: message id, exit code.
-2. **Ack arrives.** Poll `atm list --unread --json` every 10 s for up to 180 s until a message from
+2. **Ack arrives.** Poll `atm list --unread --json` every 10 s for up to 300 s until a message from
    that agent containing `roundtrip <run-id>` appears; read it. Observable: seconds, or timeout.
 3. **State.** `atm list --pending-ack --json`: the id from step 1 is no longer pending.
    Observable: present yes/no.

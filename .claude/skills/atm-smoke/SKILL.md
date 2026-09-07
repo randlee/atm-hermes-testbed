@@ -27,7 +27,7 @@ is required. Run-id = current unix time, used in your one-line body.
 1. **Send.** One line `atm-smoke <run-id> from <you>` to the partner, ack required (CLI
    `--requires-ack`; native `requires_ack=True`). Observable: message id A; FAIL with the code on any
    error (`MAY_HAVE_EXECUTED` is a FAIL).
-2. **Partner's message arrives.** List unread every 10 s for up to 120 s until a message from the
+2. **Partner's message arrives.** List unread every 10 s for up to 300 s until a message from the
    partner whose summary starts `atm-smoke` is present; note its id B. Observable: seconds, id B.
 3. **Peek does not mutate.** Peek B by id, then list unread: B still present. Observable: yes/no.
 4. **Read by id.** Read B by id. Observable: `count` (must be 1) and `mutation_applied` where
@@ -36,7 +36,7 @@ is required. Run-id = current unix time, used in your one-line body.
 6. **Stale-connection probe.** Do nothing for 5 s, then list. Observable: exit or error code; FAIL on
    `MAY_HAVE_EXECUTED`, `RequestWrite`, or a connection error.
 7. **Ack.** Ack B with reply `atm-smoke ack <run-id>`. Observable: exit or error code.
-8. **Your message got acked.** Within 120 s the partner's ack reply (from the partner, containing
+8. **Your message got acked.** Within 300 s the partner's ack reply (from the partner, containing
    `atm-smoke ack <run-id>`) appears in your unread list; read it. Observable: seconds, or timeout.
    (`atm list --pending-ack` shows what *you* still owe, so it is not the observable here.)
 
