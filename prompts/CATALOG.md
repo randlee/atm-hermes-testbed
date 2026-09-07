@@ -105,9 +105,9 @@ solar relay 01M1WXG7TYNN09NWDJEVEKZPGS):** bare-`atm read` returning
 — `mutation_applied` means the read/seen transition was ACCEPTED by the
 supervised non-blocking handoff, not yet durable. Bare read and
 `--message-id` share `prepare_async_read`/`complete_async_read`; the observed
-difference was scheduling, not semantics. Attribution: **ADR-059 +
-requirements 7.13** (arch-ctm docs/tests PR: TBD — to be added when fenix
-supplies the number). A1 now asserts acceptance synchronously
+difference was scheduling, not semantics. Attribution: **atm-core PR #1278
+("docs+test: read mutation_applied means handoff accepted (ADR-059)") /
+ADR-059 / requirements 7.13**. A1 now asserts acceptance synchronously
 (`mutation_applied=true`, `selection_mode=actionable`, matching
 `message_id`) and durability by bounded poll of `atm list --json` until
 `unread==0 && history==1` (15s deadline); it never requires
@@ -132,6 +132,41 @@ planned v2 bump at the v1.5.3 re-run). Prompts remain `since: suite/v1`; this
 changelog records the deterministic-matrix (tiers A–D) contract repair. The
 `suite/v2` tag is cut at the head of this validated cycle per the versioning
 rule.
+
+### suite/v2 five-fix named-SHA bundle (solar 01M1WYRAEF1TFBRP8FP52SY23H,
+### gate 01M1WYY9XS0Z8KJYZQT5KJB4T6, audit 01M1WZ68M88T4WW17PCH1E4GVS)
+
+All five repairs in ONE named testbed commit (no execution until solar's
+named-SHA authorization):
+
+1. **A1 v2** — acceptance (`mutation_applied=true`, `selection_mode=
+   actionable`, matching message_id) + bounded durability poll
+   (`unread==0 && history==1`) on the MONOTONIC clock (audit item 2:
+   wall-clock adjustment cannot extend/shorten the bound). CATALOG
+   attribution: atm-core **PR #1278 / ADR-059 / requirements 7.13** (exact,
+   per 01M1WYWP87KFV94FVKNJQM7BC0 — no TBD).
+2. **D7 correlated delta** — pre-send snapshot of the daemon log byte offset
+   + `outcome=sent` count; post-send requires a FRESH `action=send
+   outcome=sent` entry past the cursor (bounded 5s) AND a count increase;
+   correlation recorded in the D7 row detail (cursor offset, pre/post
+   counts, fresh entry timestamp, product-API message_id). Whole-log
+   `grep -c` rejected per solar 01M1WYHTSCST2Z0FS011TSG8F0.
+3. **Self-carried tier provenance** — `result.py` REFUSES to write a tier
+   JSON unless `image.digest`, `provenance.atm_core_sha`,
+   `provenance.ci_run_id`, `versions.hermes_fork` are populated (envs
+   `TESTBED_IMAGE_ID`/`ATM_CORE_SHA`/`CI_RUN_ID`/`HERMES_FORK_SHA`, supplied
+   by the new host `run-tiers.sh`, which fail-closes on a digest mismatch
+   and cross-checks `asset-provenance.txt`).
+4. **Doctor lifecycle** — every tier main begins from a `doctor_ok_gate()`
+   (FATAL on error findings or warning codes outside the expected fixture
+   set `ATM_ROSTER_NO_LEAD`); tier JSONs carry sanitized
+   `daemon.doctor_findings` (severity/code → count, never messages);
+   fixture teams are torn down AFTER evidence emission via
+   `teardown_fixture_teams()` (identity-scoped remove-member; residue
+   reported, not ignored). Post-run sanitized doctor summary saved as
+   `doctor-post-run.json`.
+5. **HGC-023** — AT8 RTT calibration marker (see HGC-023 entry above;
+   already landed in this suite/v2 cycle).
 
 ## Prompt file format
 

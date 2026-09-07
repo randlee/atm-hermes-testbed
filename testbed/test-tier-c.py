@@ -24,6 +24,8 @@ import time
 
 sys.path.insert(0, "/opt/testbed")
 from result import Recorder  # noqa: E402
+from seam_harness import (doctor_ok_gate, teardown_fixture_teams,  # noqa: E402
+                          register_fixture_team)
 
 REC = Recorder()
 FAILED: list[str] = []
@@ -110,6 +112,7 @@ def c5_tmux_nudge_routing(session: str, suffix: str) -> None:
     TokioTmuxReceivedHook). Contract: delivery_channel.rs —
     recipient_pane_id selects the Tmux backend, which wins over graft."""
     team = f"c5-{suffix}"
+    register_fixture_team(team)
     pane = tmux(["new-window", "-t", f"{session}:", "-n", "c5", "-P", "-F", "#{pane_id}"])[1].strip()
     env = dict(os.environ, ATM_IDENTITY="c5-alpha", ATM_TEAM=team)
 
@@ -156,6 +159,7 @@ def c6_lifecycle(session: str) -> None:
 def main() -> int:
     suffix = sys.argv[1] if len(sys.argv) > 1 else str(int(time.time()))
     session = f"tierc-{suffix}"
+    doctor_ok_gate()  # five-fix item 4: begin from doctor ok
     tests = [
         ("C1-headless-server", lambda: c1_headless_server(session)),
         ("C2-windows-panes-titles", lambda: c2_windows_panes_titles(session)),
@@ -175,6 +179,7 @@ def main() -> int:
             REC.fail(name, str(exc))
     tmux(["kill-server"], expect_rc=None)
     result_path = REC.emit("C", "tmux-surface")
+    teardown_fixture_teams()  # five-fix item 4: AFTER evidence is emitted
     print(f"result: {result_path}")
     print(f"---\n{len(tests) - len(FAILED)}/{len(tests)} passed")
     if FAILED:

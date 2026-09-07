@@ -27,7 +27,9 @@ from pathlib import Path
 
 sys.path.insert(0, "/opt/testbed")
 from result import Recorder  # noqa: E402
-from seam_harness import ensure_daemon, ensure_roster, WS_ROOT  # noqa: E402
+from seam_harness import (ensure_daemon, ensure_roster, WS_ROOT,  # noqa: E402
+                          doctor_ok_gate, teardown_fixture_teams,
+                          register_fixture_team)
 
 REC = Recorder()
 FAILED: list[str] = []
@@ -160,6 +162,7 @@ def _register_roster(team: str, members: dict[str, str], admin: str) -> None:
     """members maps identity -> workspace_root; update each member's
     workspace_root to its own receiver directory (daemon resolves the graft
     endpoint from the roster)."""
+    register_fixture_team(team)
     env = dict(os.environ, ATM_IDENTITY=admin, ATM_TEAM=team)
     for member in members:
         subprocess.run(["atm", "teams", "add-member", team, member,
@@ -332,6 +335,7 @@ def run(name: str, coro_fn, team: str) -> None:
 def main() -> int:
     suffix = sys.argv[1] if len(sys.argv) > 1 else str(int(time.time()))
     ensure_daemon()
+    doctor_ok_gate()  # five-fix item 4: begin from doctor ok
     tests = [
         ("B1-seam-regression", b1_seam_regression),
         ("B2a-delivery-envelope", b2a_delivery_envelope),
@@ -343,6 +347,7 @@ def main() -> int:
     for name, fn in tests:
         run(name, fn, f"{name.split('-')[0].lower()}-{suffix}")
     result_path = REC.emit("B", "seam-envelope-fidelity")
+    teardown_fixture_teams()  # five-fix item 4: AFTER evidence is emitted
     print(f"result: {result_path}")
     print(f"---\n{len(tests) - len(FAILED)}/{len(tests)} passed")
     if FAILED:

@@ -43,6 +43,36 @@ def collect_versions() -> dict:
     }
 
 
+# Evidence-integrity gate (solar five-fix bundle item 3,
+# 01M1WYRAEF1TFBRP8FP52SY23H): a tier JSON is only citable evidence if its
+# provenance is self-carried. The coordinator MUST pass these envs at
+# docker-exec time:
+#   TESTBED_IMAGE_ID  — full sha256:... digest of the pinned image
+#   ATM_CORE_SHA      — atm-core commit the artifacts were built from
+#   CI_RUN_ID         — Actions run id that produced the wheels
+#   HERMES_FORK_SHA   — fork main/stack SHA baked into the base image
+REQUIRED_ENV = ("TESTBED_IMAGE_ID", "ATM_CORE_SHA", "CI_RUN_ID", "HERMES_FORK_SHA")
+
+
+def _check_populated(doc: dict) -> None:
+    """Refuse to write a tier JSON with empty/unknown provenance fields."""
+    problems = []
+    if doc["image"]["digest"] in ("", "unknown"):
+        problems.append("image.digest")
+    if doc["provenance"]["atm_core_sha"] in ("", "unknown"):
+        problems.append("provenance.atm_core_sha")
+    if doc["provenance"]["ci_run_id"] in ("", "unknown"):
+        problems.append("provenance.ci_run_id")
+    if doc["versions"]["hermes_fork"] in ("", "unknown"):
+        problems.append("versions.hermes_fork")
+    if problems:
+        raise RuntimeError(
+            "REFUSING to write tier JSON: unpopulated provenance fields: "
+            + ", ".join(problems)
+            + ". Coordinator must pass envs: " + ", ".join(REQUIRED_ENV)
+            + " (see SMOKE-TEST-RUNBOOK.md evidence-integrity gate).")
+
+
 def collect_host() -> dict:
     qemu = os.path.exists("/proc/sys/fs/binfmt_misc/qemu-x86_64") or \
         os.path.exists("/usr/bin/qemu-x86_64")
@@ -74,19 +104,26 @@ class Recorder:
     def _doctor_snapshot() -> dict:
         """`atm doctor --json` at suite start (fenix@atm-dev schema addition):
         makes client/daemon version drift visible in the record instead of in
-        a failed run."""
+        a failed run. suite/v2 five-fix bundle (item 4): also captures
+        SANITIZED findings — severity/code/count only, never message bodies
+        (which embed fixture team names / potentially sensitive text)."""
         try:
             out = subprocess.run(["atm", "doctor", "--json"], capture_output=True,
                                  text=True, timeout=60)
             doc = json.loads(out.stdout)
+            findings: dict[str, int] = {}
+            for f in doc.get("findings") or []:
+                key = f"{f.get('severity', '?')}/{f.get('code', '?')}"
+                findings[key] = findings.get(key, 0) + 1
             return {
                 "client_version": (doc.get("client_context") or {}).get("version", "unknown"),
                 "daemon_version": (doc.get("daemon_context") or {}).get("version", "unknown"),
                 "doctor_status": (doc.get("summary") or {}).get("status", "unknown"),
+                "doctor_findings": findings,
             }
         except Exception:  # noqa: BLE001
             return {"client_version": "unknown", "daemon_version": "unknown",
-                    "doctor_status": "unavailable"}
+                    "doctor_status": "unavailable", "doctor_findings": {}}
 
     @staticmethod
     def _provenance() -> dict:
@@ -133,6 +170,9 @@ class Recorder:
             "finished_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
             "duration_ms": int((time.time() - self.started) * 1000),
         }
+        # Fail-closed evidence integrity: never persist a record that cannot
+        # self-certify its provenance (five-fix bundle item 3).
+        _check_populated(doc)
         RESULTS_DIR.mkdir(parents=True, exist_ok=True)
         path = RESULTS_DIR / f"tier-{tier.lower()}.json"
         path.write_text(json.dumps(doc, indent=2))

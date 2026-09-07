@@ -45,16 +45,39 @@ TESTBED_PLATFORM=arm64 ./run.sh --peer rand-m5.local   # cross-host mode (Step 6
 
 ## Step 2 — infra matrix (Tier A–D + D7)
 
+**suite/v2 (five-fix bundle): run via the host coordinator, NOT a bare
+`docker exec`** — the coordinator supplies the self-carried provenance envs
+that `result.py` now REQUIRES (it refuses to write a tier JSON with any
+empty/unknown provenance field), fail-closes on an image-digest mismatch,
+and cross-checks `results-run-v153/asset-provenance.txt`:
+
 ```sh
-docker exec hermes-testbed /opt/testbed/test-graph.sh
+# v1.5.3 run needs no args — defaults derive from asset-provenance.txt +
+# the base-image build worktree. Override any via env.
+./run-tiers.sh results-run-v153
 ```
 
-- Emits `/opt/testbed/results/tier-{a,b,c,d}.json` (schema v1).
-- Expected on a green release: A 8/8, B 6/6, C 6/6, D 6/6 + D7 PASS.
-- D7 asserts the routing CONTRACT (backendType=herdr persisted, send dispatched
-  without `ATM_HERDR_UNAVAILABLE`, log outcome=sent), not pane-text capture.
+- Emits `/opt/testbed/results/tier-{a,b,c,d}.json` (schema v1) + copies them
+  to the outdir, plus a sanitized `doctor-post-run.json` (status + code
+  counts only, never finding messages).
+- Each tier main begins from `doctor_ok_gate()` (FATAL on error findings or
+  any warning code outside the expected fixture set `ATM_ROSTER_NO_LEAD`)
+  and ends with `teardown_fixture_teams()` AFTER evidence is emitted
+  (identity-scoped `remove-member`; residue reported, not ignored).
+- Expected on a green release: A 8/8, B 6/6, C 6/6, D 7/7 (D7 included).
+- D7 asserts the routing CONTRACT with a **correlated fresh-event proof**
+  (five-fix item 2): pre-send snapshot of the daemon-log byte offset +
+  `outcome=sent` count; post-send requires a NEW `action=send outcome=sent`
+  entry past the cursor (bounded 5s) AND a count increase; the D7 row detail
+  records cursor offset, pre/post counts, fresh-entry timestamp, and the
+  product-API message_id. A whole-log `grep -c` is NOT accepted (it counts
+  historical events). backendType=herdr persistence + no
+  `ATM_HERDR_UNAVAILABLE` still asserted; not pane-text capture.
 - D7 pitfall: register members WITHOUT `--session`; the default herdr socket is
   the contract. Per-session sockets require matching `HERDR_SESSION` paths.
+- Evidence-integrity gate envs (set by run-tiers.sh): `TESTBED_IMAGE_ID`
+  (pinned digest), `ATM_CORE_SHA`, `CI_RUN_ID` (the WHEELS run, headSha ==
+  tag sha), `HERMES_FORK_SHA`.
 
 ## Step 3 — prompt suite (E0 + AT0–AT8, real Anthropic key)
 

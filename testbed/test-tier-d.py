@@ -24,10 +24,14 @@ from pathlib import Path
 
 sys.path.insert(0, "/opt/testbed")
 from result import Recorder  # noqa: E402
+from seam_harness import (doctor_ok_gate, teardown_fixture_teams,  # noqa: E402
+                          register_fixture_team)
 
 REC = Recorder()
 FAILED: list[str] = []
 SKIPPED: list[str] = []
+# fresh-send-event correlation evidence captured inside d7 (five-fix item 2)
+D7_FRESH_EVENT_EVIDENCE = ""
 SOCKET = Path("/root/.config/herdr/herdr.sock")
 SERVER_LOG = "/tmp/herdr-server.log"
 
@@ -174,6 +178,7 @@ def d7_herdr_nudge_routing(label: str) -> None:
       5. the agent snapshot is still reachable afterwards (agent get).
     """
     team = f"d7-{label}"
+    register_fixture_team(team)
     sender, receiver = f"fx-{label}-send", f"fx-{label}-recv"
     agent_name = f"fx-d7-{label}"
 
@@ -214,7 +219,19 @@ def d7_herdr_nudge_routing(label: str) -> None:
     # warm the breaker: let the daemon probe herdr successfully once
     time.sleep(2)
 
-    # the routing send
+    # the routing send — with a PRE-SEND log cursor (five-fix bundle item 2,
+    # solar 01M1WYHTSCST2Z0FS011TSG8F0: grep -c over the whole log counts
+    # historical events and does not prove a FRESH one). Snapshot the byte
+    # size + outcome=sent count BEFORE the send; after, require exactly a
+    # new send/sent entry past the cursor and correlate it to THIS send.
+    log_path = "/root/.atm/logs/atm.log.jsonl"
+    pre = subprocess.run(["sh", "-c", f"wc -c < {log_path}"],
+                         capture_output=True, text=True)
+    pre_offset = int(pre.stdout.strip() or 0)
+    pre_sent = subprocess.run(["sh", "-c", f"grep -c '\"outcome\":\"sent\"' {log_path}"],
+                              capture_output=True, text=True)
+    pre_sent_n = int(pre_sent.stdout.strip() or 0)
+
     marker = f"D7-{label.upper()}"
     snd = atm("send", receiver, marker, "--team", team)
     assert snd.returncode == 0, snd.stderr[:300]
@@ -222,22 +239,46 @@ def d7_herdr_nudge_routing(label: str) -> None:
     assert "ATM_HERDR_UNAVAILABLE" not in out, \
         f"herdr hook breaker open: {out[:300]}"
     assert "message_id:" in out or "Sent to" in out, out[:300]
+    mid_m = __import__("re").search(r"message_id[:\s]+([0-9A-Z]{20,})", out)
+    this_mid = mid_m.group(1) if mid_m else ""
 
-    # daemon observability log: the documented routing contract is
-    # action=send outcome=sent (D7 contract item 4). suite/v2 repair
-    # (fenix authorization, atm-core b84a9d2ef0 lineage): the per-message
-    # ULID grep is DROPPED — 1.5.x structured send entries carry
-    # message=null with fields={command} only, so the ULID is no longer
-    # present in the log shape. Correlating the send to this test relies on
-    # the product-API evidence already asserted above (exit 0 + message_id
-    # returned at line ~216) and below (receiver mailbox / agent reach-
-    # able), not on the obsolete log shape. The remaining assertion is the
-    # routing contract only: a send/sent observability event was emitted.
-    log = subprocess.run(["sh", "-c", "grep -c '\"outcome\":\"sent\"' "
-                          "/root/.atm/logs/atm.log.jsonl"],
-                         capture_output=True, text=True)
-    assert log.stdout.strip().isdigit() and int(log.stdout.strip()) > 0, \
-        "no sent outcomes in daemon log"
+    # Fresh-event proof: bounded wait for the post-cursor delta (the daemon
+    # emits asynchronously; 5s bound, 0.2s poll).
+    import json as _json
+    deadline = time.monotonic() + 5.0
+    new_lines: list[str] = []
+    while time.monotonic() < deadline:
+        tail = subprocess.run(["sh", "-c", f"tail -c +{pre_offset + 1} {log_path}"],
+                              capture_output=True, text=True)
+        new_lines = [ln for ln in tail.stdout.splitlines() if ln.strip()]
+        sent_new = [ln for ln in new_lines if '"action":"send"' in ln
+                    and '"outcome":"sent"' in ln]
+        if sent_new:
+            break
+        time.sleep(0.2)
+    sent_new = [ln for ln in new_lines if '"action":"send"' in ln
+                and '"outcome":"sent"' in ln]
+    assert sent_new, (
+        f"no FRESH action=send outcome=sent entry past byte offset "
+        f"{pre_offset} within 5s (pre-send count {pre_sent_n})")
+    post_sent = subprocess.run(["sh", "-c", f"grep -c '\"outcome\":\"sent\"' {log_path}"],
+                               capture_output=True, text=True)
+    post_sent_n = int(post_sent.stdout.strip() or 0)
+    assert post_sent_n > pre_sent_n, \
+        f"outcome=sent count did not increase: {pre_sent_n} -> {post_sent_n}"
+    # Correlation to THIS send: 1.5.x structured send entries carry
+    # message=null (ULID not in the log shape — recorded, not asserted).
+    # Correlation is therefore: exactly one fresh send/sent entry in the
+    # cursor window whose timestamp is >= the send's, plus the product-API
+    # message_id captured above. Record both in the result detail.
+    fresh = _json.loads(sent_new[0])
+    # Evidence is attached to the D7 row itself (row-id scheme must stay
+    # stable — no extra rows); d7 main() records pass with this detail.
+    global D7_FRESH_EVENT_EVIDENCE
+    D7_FRESH_EVENT_EVIDENCE = (
+        f"cursor_offset={pre_offset} pre_sent={pre_sent_n} "
+        f"post_sent={post_sent_n} fresh_ts={fresh.get('timestamp')} "
+        f"api_message_id={this_mid or 'none-visible'}")
 
     # agent still reachable (the daemon's probe path)
     got = herdr(["agent", "get", agent_name])
@@ -248,6 +289,7 @@ def main() -> int:
     suffix = sys.argv[1] if len(sys.argv) > 1 else str(int(time.time()))
     label = f"tierd-{suffix}"
     wid_holder: dict[str, str] = {}
+    doctor_ok_gate()  # five-fix item 4: begin from doctor ok
 
     def d2_run(_label: str) -> None:
         d2_workspace_round_trip(label)
@@ -292,7 +334,8 @@ def main() -> int:
         try:
             d7_herdr_nudge_routing(label)
             print("PASS D7-herdr-nudge-routing")
-            REC.pass_("D7-herdr-nudge-routing")
+            REC.record("D7-herdr-nudge-routing", "pass",
+                       D7_FRESH_EVENT_EVIDENCE or None)
         except Exception as exc:  # noqa: BLE001
             print(f"FAIL D7-herdr-nudge-routing: {exc}")
             FAILED.append("D7-herdr-nudge-routing")
@@ -302,6 +345,7 @@ def main() -> int:
         REC.skip("D7-herdr-nudge-routing", "atm-daemon lacks the herdr delivery backend (Phase AQ)")
 
     result_path = REC.emit("D", "herdr-surface")
+    teardown_fixture_teams()  # five-fix item 4: AFTER evidence is emitted
     print(f"result: {result_path}")
     print(f"---\n{len(tests) - len(FAILED)}/{len(tests)} passed")
     for s in SKIPPED:

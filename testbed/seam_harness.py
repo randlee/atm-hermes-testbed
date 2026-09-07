@@ -73,10 +73,93 @@ def roster_has_workspace_root(member: str, team: str) -> bool:
         return False
 
 
+# ---------------------------------------------------------------------------
+# Doctor lifecycle + fixture teardown (solar five-fix bundle item 4,
+# 01M1WYRAEF1TFBRP8FP52SY23H): begin final runs from doctor ok; allow only
+# the explicitly expected ATM_ROSTER_NO_LEAD fixture finding; tear fixture
+# teams down AFTER evidence is emitted.
+# ---------------------------------------------------------------------------
+
+# warning codes that are EXPECTED while fixture teams exist (stub members,
+# deliberately lead-less). Anything else at start = FATAL (fail-closed).
+EXPECTED_FIXTURE_WARNING_CODES = {"ATM_ROSTER_NO_LEAD"}
+
+FIXTURE_TEAMS: list[str] = []
+
+
+def register_fixture_team(team: str) -> None:
+    if team not in FIXTURE_TEAMS:
+        FIXTURE_TEAMS.append(team)
+
+
+def doctor_ok_gate() -> dict:
+    """Run `atm doctor --json`; enforce the start-of-run health gate.
+
+    Returns the sanitized findings dict {severity/code: count}. FATAL
+    (SystemExit) on: non-ok summary with error findings, or warning codes
+    outside the expected fixture set. Sanitized = codes/severity/count only,
+    never finding messages (they embed fixture team names)."""
+    import json as _json
+    out = subprocess.run(["atm", "doctor", "--json"], capture_output=True,
+                         text=True, timeout=60)
+    doc = _json.loads(out.stdout)
+    summary = doc.get("summary") or {}
+    findings: dict[str, int] = {}
+    for f in doc.get("findings") or []:
+        key = f"{f.get('severity', '?')}/{f.get('code', '?')}"
+        findings[key] = findings.get(key, 0) + 1
+    if summary.get("error_count", 0) != 0:
+        raise SystemExit(f"FATAL: doctor start gate: error_count="
+                         f"{summary.get('error_count')} findings={findings}")
+    unexpected = [k for k in findings
+                  if k.startswith("warning/")
+                  and k.split("/", 1)[1] not in EXPECTED_FIXTURE_WARNING_CODES]
+    if unexpected:
+        raise SystemExit(f"FATAL: doctor start gate: unexpected warning codes "
+                         f"{unexpected} (full sanitized set: {findings})")
+    return findings
+
+
+def teardown_fixture_teams(teams: list[str] | None = None) -> None:
+    """Remove fixture roster rows AFTER evidence is emitted.
+
+    remove-member is caller-team scoped (verified live 2026-09-07): each
+    member is removed under an identity from its OWN team. Read membership
+    from the roster DB (read-only), then remove via the product CLI. Any
+    residue is reported, not silently ignored."""
+    import sqlite3
+    teams = FIXTURE_TEAMS if teams is None else teams
+    for team in teams:
+        try:
+            con = sqlite3.connect(str(ROSTER_DB), timeout=10)
+            members = [r[0] for r in con.execute(
+                "select agent_name from team_roster where team_name=?", (team,))]
+            con.close()
+        except Exception:
+            members = []
+        for m in members:
+            env = dict(os.environ, ATM_IDENTITY=m, ATM_TEAM=team)
+            subprocess.run(["atm", "teams", "remove-member", team, m],
+                           env=env, capture_output=True, text=True, timeout=30)
+        # verify teardown
+        try:
+            con = sqlite3.connect(str(ROSTER_DB), timeout=10)
+            left = con.execute(
+                "select count(*) from team_roster where team_name=?",
+                (team,)).fetchone()[0]
+            con.close()
+            if left:
+                print(f"TEARDOWN-RESIDUE: {team} still has {left} roster rows")
+        except Exception:
+            pass
+    print(f"fixture teardown complete: {len(teams)} team(s)")
+
+
 def ensure_roster(team: str, members: list[str], admin: str | None = None) -> None:
     """Register members WITH verification. workspace_root + harness are
     REQUIRED on EVERY member for nudge routing — silent registration loss
     was the root cause of the 2026-08-27 'send succeeds, no nudge' bug."""
+    register_fixture_team(team)
     admin = admin or members[0]
     env = dict(os.environ, ATM_IDENTITY=admin, ATM_TEAM=team)
     for m in members:

@@ -18,6 +18,8 @@ from pathlib import Path
 
 sys.path.insert(0, "/opt/testbed")
 from result import Recorder  # noqa: E402
+from seam_harness import (doctor_ok_gate, teardown_fixture_teams,  # noqa: E402
+                          register_fixture_team)
 
 REC = Recorder()
 
@@ -66,6 +68,7 @@ def ensure_roster(team: str, members: list[str]) -> None:
     """Register + VERIFY persisted metadata (root cause of the 2026-08-27
     silent-registration bug: update-member can fail and leave no
     workspace_root, which breaks routing later)."""
+    register_fixture_team(team)
     admin = members[0]
     for m in members:
         atm(["teams", "add-member", team, m, "--agent-type", "stub",
@@ -138,11 +141,13 @@ def a1_send_read_history(team: str) -> None:
     assert m["message_id"] == mid, m
     assert m["text"] == "A1-PAYLOAD", m["text"]
     # DURABILITY (bounded poll): the accepted transition becomes visible —
-    # unread drains to 0 and history reaches 1. Deadline 15s (handoff is
-    # non-blocking; observed settlement is sub-second on native arm64).
-    deadline = time.time() + 15.0
+    # unread drains to 0 and history reaches 1. Deadline 15s on the
+    # MONOTONIC clock (solar audit 01M1WZ68M88T4WW17PCH1E4GVS: wall-clock
+    # adjustment must not extend/shorten the bound). Handoff is non-blocking;
+    # observed settlement is sub-second on native arm64.
+    deadline = time.monotonic() + 15.0
     last = {"unread": -1, "history": -1}
-    while time.time() < deadline:
+    while time.monotonic() < deadline:
         d = atm_json(["list", alpha, "--json"], alpha, team)
         last = counts(d)
         if last["history"] == 1 and last["unread"] == 0:
@@ -289,6 +294,7 @@ HELD_TESTS: dict[str, str] = {}
 def main() -> int:
     suffix = sys.argv[1] if len(sys.argv) > 1 else str(int(time.time()))
     ensure_daemon()
+    doctor_ok_gate()  # five-fix item 4: begin from doctor ok
     tests = [
         ("A1-send-read-history", a1_send_read_history),
         ("A2-pending-ack-lifecycle", a2_pending_ack_lifecycle),
@@ -308,6 +314,7 @@ def main() -> int:
             continue
         run_test(name, fn, suffix)
     result_path = REC.emit("A", "mailbox-semantics")
+    teardown_fixture_teams()  # five-fix item 4: AFTER evidence is emitted
     print(f"result: {result_path}")
     ran = len(tests) - held
     print(f"---\n{len(tests) - len(FAILED) - held}/{ran} passed, {held} held")
