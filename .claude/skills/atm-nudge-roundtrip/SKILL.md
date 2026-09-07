@@ -24,6 +24,10 @@ Two roles, one skill. The request says which role you are.
 ## Responder steps (Hermes agent)
 
 1. **Nudge received.** You received an `<atm …>` block naming a message id. Observable: the id.
+   If you were started by the sentence instead of a nudge (a fixture whose gateway cannot inject,
+   atm-core #1307), poll `atm list --pending-ack --json` every 10 s for up to 600 s for a row whose
+   `summary` starts `atm-nudge-roundtrip`, take its `message_id`, and write this step as
+   `PASS Nudge received — none (polled, #1307), id <id>, <seconds>s`.
 2. **Read by id.** `atm_read(message_id=<id>)`. Observable: `count` (must be 1); FAIL with the code
    if 0 or error.
 3. **Ack natively.** `atm_ack(message_id=<id>, reply="roundtrip <run-id>")`. Observable: exit/ error
