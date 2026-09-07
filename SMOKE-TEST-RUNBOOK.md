@@ -115,9 +115,11 @@ headless CLI, as the hermes user from the profile dir (loki's proof recipe, rehe
 `/opt/hermes/bin/hermes` shim drops root → hermes; the model must be the full id):
 
 ```sh
-h() { docker exec hermes-testbed sh -c "printf '%s\n' \"$1\" > /tmp/smoke-prompt.md; chmod 644 /tmp/smoke-prompt.md"
-      docker exec -e ATM_IDENTITY=hermes -e ATM_TEAM=testbed hermes-testbed hermes chat --query-file /tmp/smoke-prompt.md \
-        -m claude-haiku-4-5-20251001 --provider anthropic --yolo --max-turns 60 --in /opt/data; }
+# h <skill> "<sentence>": -p default pins the profile root (skills are read only from $HERMES_HOME/skills),
+# --skills preloads the named skill, --yolo --accept-hooks make it unattended (skillrx, hermes 0.20.0).
+h() { docker exec hermes-testbed sh -c "printf '%s\n' \"$2\" > /tmp/smoke-prompt.md; chmod 644 /tmp/smoke-prompt.md"
+      docker exec -e ATM_IDENTITY=hermes -e ATM_TEAM=testbed hermes-testbed hermes -p default chat --query-file /tmp/smoke-prompt.md \
+        --skills "$1" -m claude-haiku-4-5-20251001 --provider anthropic --yolo --accept-hooks --max-turns 60 --in /opt/data; }
 t() { ATM_IDENTITY=stub-alpha ATM_TEAM=testbed atm send tester@testbed.$F --requires-ack --stdin <<<"$1"; }
 ```
 
@@ -127,12 +129,12 @@ skill needs one, and the report address with its `.host` suffix.
 
 ```
 t "run the atm-setup-environment skill on fixture $F (expected roster: $R; peer host $M) and send the report to $O"
-h "run the atm-setup-environment skill on fixture $F (expected roster: $R; peer host $M) and send the report to $O"
+h atm-setup-environment "run the atm-setup-environment skill on fixture $F (expected roster: $R; peer host $M) and send the report to $O"
 t "run the atm-smoke skill against hermes@testbed on fixture $F and send the report to $O"
-h "run the atm-smoke skill against tester@testbed on fixture $F and send the report to $O"
+h atm-smoke "run the atm-smoke skill against tester@testbed on fixture $F and send the report to $O"
 t "run the atm-hermes-ready skill for hermes@testbed on fixture $F and send the report to $O"
 t "run the atm-nudge-roundtrip skill as tester against hermes@testbed on fixture $F and send the report to $O"
-h "run the atm-nudge-roundtrip skill as responder on fixture $F and send the report to $O"
+h atm-nudge-roundtrip "run the atm-nudge-roundtrip skill as responder on fixture $F and send the report to $O"
 ```
 
 The same seven sentences, same skills, run on this host against the local team (fixture `$M`, no peer)
