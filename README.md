@@ -6,6 +6,19 @@ Isolated container testbed for the hermes-agent fork + ATM, and the backbone for
 Phase AR release validation (atm pre-release dispatches). Migrated 2026-08-29
 from `hendrix/hendrix/loki/docker-testbed` (full history preserved there).
 
+## ATM smoke-test skill (hermes integration test)
+
+The image bakes `testbed/skills/devops/atm-smoke-test/SKILL.md` into the
+container agent's bundled skills, replacing step lists and tier coordination
+as the hermes integration test. Three steps: **(1)** build for an ATM tag —
+`ATM_TARBALL=<tag tarball> WHEELS_DIR=<tag wheels dir> TESTBED_PLATFORM=arm64
+./build.sh all`; **(2)** boot — `TESTBED_PLATFORM=arm64 ./run.sh`; **(3)**
+tell the agent *"run the atm smoke-test skill and send the report to
+fenix@atm-dev"* (e.g. via the prompt runner or `hermes -z`); it exercises
+the native atm tools + CLI interop against the container daemon and sends
+one sanitized PASS/FAIL report (no bodies, addresses, tokens, or capability
+values).
+
 ## Goal
 
 Run the hermes-agent fork (`randlee/hermes-agent`, branch `main`) inside a Docker

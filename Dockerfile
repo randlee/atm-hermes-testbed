@@ -81,6 +81,14 @@ COPY --chmod=0755 testbed/harness/test-at8-calibrate.sh /opt/testbed/harness/tes
 COPY --chmod=0755 testbed/harness/install-claude-code.sh /opt/testbed/harness/install-claude-code.sh
 COPY --chmod=0755 testbed/harness/setup-mtls.sh /opt/testbed/harness/setup-mtls.sh
 
+# Bake the ATM smoke-test skill into the fork's bundled skills tree so the
+# containerized hermes agent carries it WITHOUT manual copying. At boot,
+# docker/stage2-hook.sh runs tools/skills_sync.py, which syncs
+# /opt/hermes/skills -> $HERMES_HOME/skills (/opt/data/skills), so a skill
+# placed here is present in the agent's skills dir on a fresh OR existing
+# volume. Category dir (devops/) matches the SKILL.md metadata.category.
+COPY testbed/skills/devops/atm-smoke-test /opt/hermes/skills/devops/atm-smoke-test
+
 # Testbed runtime lives entirely inside the container:
 #  - hermes state under /opt/data (never host-mounted)
 #  - atm state under /root/.atm (isolated daemon + socket)
