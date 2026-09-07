@@ -43,5 +43,9 @@ On any FAIL, before sending the report:
 A FAIL without a cause line is not a finished report. Never change ATM code or binaries; a cause
 in those goes to the requester as-is.
 
-Rules: never include message bodies, addresses beyond `agent@team`, chat ids, tokens,
+Rules: an `atm` command runs in your terminal/shell tool where `ATM_IDENTITY`/`ATM_TEAM` are set — never as
+a subprocess inside a code-execution tool (no identity there: every call fails and a poll loop runs to its
+deadline for nothing). Poll by calling the tool (native `atm_list()` or the CLI) once per iteration and
+sleep 10 s in the terminal between calls; never write a loop that shells out to `atm`. The `atm:` line
+comes from `atm doctor --json`, never guessed. Never include message bodies, addresses beyond `agent@team`, chat ids, tokens,
 capability values or raw config. A FAIL line carries the error code or count, not narrative.

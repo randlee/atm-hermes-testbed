@@ -30,10 +30,11 @@ is required. Run-id = current unix time, used in your one-line body.
 
 S. **Start line.** Send ONE line `ATM TEST START skill: atm-smoke fixture: <fixture> agent: <you>` to the
    requester before anything else (see `REPORT.md`); never a second one; not a report step.
-0. **Self round trip first.** Send one line to yourself (native: `atm_send` to your own name; CLI:
-   `atm send <you> --host localhost --stdin`), list unread, read it by id, list again: it is gone from
-   unread. Observable: id, `count`, `mutation_applied`. Do not open or run any other skill for this.
-   If this fails, the partner steps still run.
+0. **Self round trip first.** CLI only, in your terminal tool: `atm send <you> --host localhost --stdin`
+   with one line (native `atm_send` cannot address yourself — ATM rejects a self-addressed send; the
+   `--host localhost` loop is the one form that works). Then `atm list --unread --json`, `atm read
+   --message-id <id>`, list again: gone from unread. Observable: id, `count`, `mutation_applied`. Do not
+   open or run any other skill for this. If this fails, the partner steps still run.
 1. **Send.** One line `atm-smoke <run-id> from <you>` to the partner, ack required (CLI
    `--requires-ack`; native `requires_ack=True`). Observable: message id A; FAIL with the code on any
    error (`MAY_HAVE_EXECUTED` is a FAIL).
@@ -62,3 +63,26 @@ S. **Start line.** Send ONE line `ATM TEST START skill: atm-smoke fixture: <fixt
 
 After the start line and any wait lines, exactly one report to the requester, template in `REPORT.md` next to this file, skill name
 `atm-smoke`, `tools:` set to what you used.
+
+Report shape — copy it exactly, plain text, nothing before or after it, one step line per step
+(the full rules are in `REPORT.md`):
+
+```
+ATM TEST REPORT
+skill: atm-smoke
+fixture: <fixture named in the sentence>
+agent: <you>@<team>  tools: <cli | native | native+cli>
+atm: client <x.y.z> daemon <x.y.z>
+result: PASS | FAIL   (<passed>/<total> steps)
+steps:
+  0 PASS Start line — <message id>
+  1 PASS <step name> — <observable: message id / count / exit code / error code / seconds>
+  2 FAIL <step name> — cause: <component/evidence>; fix: <what you did | none possible>; retest: PASS|FAIL
+  ...
+elapsed: <seconds>s
+```
+
+The `atm:` line comes from `atm doctor --json` (`.client_context.version`, `.daemon_context.version`)
+run in your terminal tool with your ATM identity in the environment — never guessed, never `0.0.0`.
+`agent:` is your own name and team (`hermes@testbed`, `tester@testbed`), the same value as in your
+start line. `result` is PASS only when every step line is PASS.

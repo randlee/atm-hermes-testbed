@@ -38,3 +38,26 @@ filled in, plain text, skill name `atm-hermes-ready`, one step line per agent fo
 before or after it. Every step line is PASS, FAIL or SKIP; PENDING is not a result. The report is
 sent once, after every ack arrived or the 120 s deadline passed, never earlier; start and wait lines
 precede it (see the template).
+
+Report shape — copy it exactly, plain text, nothing before or after it, one step line per step
+(the full rules are in `../atm-smoke/REPORT.md`):
+
+```
+ATM TEST REPORT
+skill: atm-hermes-ready
+fixture: <fixture named in the sentence>
+agent: <you>@<team>  tools: <cli | native | native+cli>
+atm: client <x.y.z> daemon <x.y.z>
+result: PASS | FAIL   (<passed>/<total> steps)
+steps:
+  0 PASS Start line — <message id>
+  1 PASS <step name> — <observable: message id / count / exit code / error code / seconds>
+  2 FAIL <step name> — cause: <component/evidence>; fix: <what you did | none possible>; retest: PASS|FAIL
+  ...
+elapsed: <seconds>s
+```
+
+The `atm:` line comes from `atm doctor --json` (`.client_context.version`, `.daemon_context.version`)
+run in your terminal tool with your ATM identity in the environment — never guessed, never `0.0.0`.
+`agent:` is your own name and team (`hermes@testbed`, `tester@testbed`), the same value as in your
+start line. `result` is PASS only when every step line is PASS.

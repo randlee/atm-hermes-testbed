@@ -18,14 +18,12 @@ Two roles, one skill. The request says which role you are.
 1. **Send.** `atm send <hermes agent> --requires-ack --stdin <<'EOF'` with the single line
    `atm-nudge-roundtrip <run-id>: ack this message with reply "roundtrip <run-id>"` where run-id is
    the current unix time. Observable: message id, exit code.
-2. **Ack arrives.** Poll `atm list --unread --json` every 10 s for up to 120 s (a wait line to the requester at 60 s) until a row whose `from`
-   is the agent's bare name (`hermes`, never `hermes@testbed`) and whose summary contains
-   `roundtrip <run-id>` appears; read it. Observable: seconds, or timeout. Never conclude before the
-   deadline; a reply missing at 30 s or 90 s is not a result. Timeout is FAIL, cause
-   `no ack within 120 s` (on a fixture whose gateway cannot inject nudges, atm-core #1307, the
-   responder is started by sentence instead and the ack still arrives; a timeout is then a real FAIL).
-3. **State.** `atm list --pending-ack --json`: the id from step 1 is no longer pending.
-   Observable: present yes/no.
+2. **Ack arrives.** Poll `atm list --unread --json` every 10 s for up to 300 s (the partner is an agent
+   that must read and ack; a wait line to the requester every 60 s) until a row whose `from` is the
+   agent's bare name (`hermes`, never `hermes@testbed`) and whose summary contains `roundtrip <run-id>`
+   appears; read it. Observable: seconds, or timeout. Never conclude before the deadline. Timeout is
+   FAIL, cause `no ack within 300 s`. (There is no step for "my message is no longer pending":
+   `atm list --pending-ack` shows only messages *you* must ack, never the state of a message you sent.)
 
 ## Responder steps (Hermes agent)
 
@@ -33,9 +31,11 @@ Two roles, one skill. The request says which role you are.
    before anything else. Observable: message id.
 1. **Nudge received.** You received an `<atm …>` block naming a message id. Observable: the id.
    If you were started by the sentence instead of a nudge (a fixture whose gateway cannot inject,
-   atm-core #1307), poll `atm list --pending-ack --json` every 10 s for up to 300 s (a wait line to the requester every 60 s) for a row whose
-   `summary` starts `atm-nudge-roundtrip`, take its `message_id`, and write this step as
-   `PASS Nudge received — none (polled, #1307), id <id>, <seconds>s`.
+   atm-core #1307): call native `atm_list()` (or `atm list --pending-ack --json` in your terminal tool —
+   never `atm` inside a code-execution tool, it has no identity there and matches nothing), look for a
+   row whose `summary` starts `atm-nudge-roundtrip`; if absent, `sleep 10` in the terminal and call
+   again, up to 300 s, with a wait line to the requester every 60 s. The row is normally there on the
+   first call. Write this step as `PASS Nudge received — none (polled, #1307), id <id>, <seconds>s`.
 2. **Read by id.** `atm_read(message_id=<id>)`. Observable: `count` (must be 1); FAIL with the code
    if 0 or error.
 3. **Ack natively.** `atm_ack(message_id=<id>, reply="roundtrip <run-id>")`. Observable: exit/ error
@@ -50,3 +50,26 @@ filled in, plain text, skill name `atm-nudge-roundtrip`, first step line states 
 before or after it. Every step line is PASS, FAIL or SKIP; PENDING is not a result. The report is
 sent once, after the last step finished or its deadline passed, never earlier; start and wait lines
 precede it (see the template).
+
+Report shape — copy it exactly, plain text, nothing before or after it, one step line per step
+(the full rules are in `../atm-smoke/REPORT.md`):
+
+```
+ATM TEST REPORT
+skill: atm-nudge-roundtrip
+fixture: <fixture named in the sentence>
+agent: <you>@<team>  tools: <cli | native | native+cli>
+atm: client <x.y.z> daemon <x.y.z>
+result: PASS | FAIL   (<passed>/<total> steps)
+steps:
+  0 PASS Start line — <message id>
+  1 PASS <step name> — <observable: message id / count / exit code / error code / seconds>
+  2 FAIL <step name> — cause: <component/evidence>; fix: <what you did | none possible>; retest: PASS|FAIL
+  ...
+elapsed: <seconds>s
+```
+
+The `atm:` line comes from `atm doctor --json` (`.client_context.version`, `.daemon_context.version`)
+run in your terminal tool with your ATM identity in the environment — never guessed, never `0.0.0`.
+`agent:` is your own name and team (`hermes@testbed`, `tester@testbed`), the same value as in your
+start line. `result` is PASS only when every step line is PASS.
