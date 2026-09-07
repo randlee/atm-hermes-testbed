@@ -35,8 +35,9 @@ is required. Run-id = current unix time, used in your one-line body.
    `--requires-ack`; native `requires_ack=True`). Observable: message id A; FAIL with the code on any
    error (`MAY_HAVE_EXECUTED` is a FAIL).
 2. **Partner's message arrives.** Every 10 s for up to 600 s run exactly `atm list --pending-ack --json`
-   (native: `atm_list()`) and look in `rows[]` for `from` == partner, `summary` starting `atm-smoke`,
-   `read` false; note its `message_id` B. It may already be there before your own send: check first.
+   (native: `atm_list()`) and look in `rows[]` for `from` == the partner's bare name (`tester`, never
+   `tester@testbed`), `summary` starting `atm-smoke`, `read` false; note its `message_id` B. Parse the
+   JSON with python3 (`jq` is not installed on every fixture). It may already be there before your own send: check first.
    Observable: seconds, id B, `read`. Nothing else finds it: `--unread` never lists an ack-required
    row, and a filter of your own invention is a FAIL of this step, not of the partner. The partner is
    a different agent on its own clock and may start minutes after you; poll until the full deadline
