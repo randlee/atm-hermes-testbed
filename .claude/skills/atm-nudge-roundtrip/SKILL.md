@@ -16,8 +16,12 @@ Two roles, one skill. The request says which role you are.
 1. **Send.** `atm send <hermes agent> --requires-ack --stdin <<'EOF'` with the single line
    `atm-nudge-roundtrip <run-id>: ack this message with reply "roundtrip <run-id>"` where run-id is
    the current unix time. Observable: message id, exit code.
-2. **Ack arrives.** Poll `atm list --unread --json` every 10 s for up to 300 s until a message from
-   that agent containing `roundtrip <run-id>` appears; read it. Observable: seconds, or timeout.
+2. **Ack arrives.** Poll `atm list --unread --json` every 10 s for up to 300 s until a row whose `from`
+   is the agent's bare name (`hermes`, never `hermes@testbed`) and whose summary contains
+   `roundtrip <run-id>` appears; read it. Observable: seconds, or timeout. Never conclude before the
+   deadline; a reply missing at 60 s or 150 s is not a result. Timeout is FAIL, cause
+   `no ack within 300 s` (on a fixture whose gateway cannot inject nudges, atm-core #1307, the
+   responder is started by sentence instead and the ack still arrives; a timeout is then a real FAIL).
 3. **State.** `atm list --pending-ack --json`: the id from step 1 is no longer pending.
    Observable: present yes/no.
 
@@ -37,5 +41,7 @@ Two roles, one skill. The request says which role you are.
 
 ## Report
 
-Exactly one message to the requester, template `../atm-smoke/REPORT.md` (sibling skill directory), skill name
-`atm-nudge-roundtrip`, first step line states the role.
+Read `../atm-smoke/REPORT.md` (sibling skill directory) before writing: the report is that template
+filled in, plain text, skill name `atm-nudge-roundtrip`, first step line states the role, nothing
+before or after it. Every step line is PASS, FAIL or SKIP; PENDING is not a result. The report is
+sent once, after the last step finished or its deadline passed, never earlier.
