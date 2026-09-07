@@ -1,7 +1,8 @@
 # ATM test report template
 
-Every ATM test skill sends exactly one report message in this shape. Same shape on every
-fixture; the `fixture` line is the only fixture-specific content.
+Every ATM test skill sends exactly one report message in this shape: the block below filled in,
+as plain text, nothing before it and nothing after it (no markdown headings, no summary, no
+prose). Same shape on every fixture; the `fixture` line is the only fixture-specific content.
 
 ```
 ATM TEST REPORT
