@@ -27,6 +27,14 @@ REPORT=$(fm "$PROMPT" report)
 echo "prompt: $PROMPT (agent=$AGENT model=${MODEL:-default} timeout=${TIMEOUT:-300}s)"
 
 [ -n "${ANTHROPIC_API_KEY:-}" ] || { echo "SKIP: ANTHROPIC_API_KEY not present"; exit 3; }
+case "$TIMEOUT" in
+  ''|*[!0-9]*) echo "FATAL: prompt timeout_s must be a positive integer"; exit 2 ;;
+esac
+[ "$TIMEOUT" -gt 0 ] || { echo "FATAL: prompt timeout_s must be positive"; exit 2; }
+[ "$MODEL" = "haiku" ] || {
+  echo "FATAL: release prompt suite permits only the low-cost haiku model"
+  exit 2
+}
 
 # hermes passes the model ID straight to the API — aliases 404 (verified:
 # "haiku" → HTTP 404 model: haiku). Map aliases to real IDs; the anthropic
@@ -111,6 +119,9 @@ case "$ID" in
 esac
 
 rm -f "$REPORT"
+RUN_LOG=$(mktemp "/tmp/prompt-${ID}.XXXXXX.log")
+cleanup() { rm -f "$RUN_LOG"; }
+trap cleanup EXIT HUP INT TERM
 
 # --- execute ----------------------------------------------------------------
 # The fork image sets HERMES_WRITE_SAFE_ROOT=/opt/data, which denies the
@@ -147,32 +158,36 @@ fi
 [ -L /opt/data/.atm ] || ln -s /root/.atm /opt/data/.atm
 
 if [ "$AGENT" = hermes ]; then
-  hermes chat --query-file "$PROMPT" \
+  set +e
+  timeout "$((TIMEOUT + 30))" hermes chat --query-file "$PROMPT" \
     ${MODEL:+-m "$MODEL"} --provider anthropic \
     --yolo --max-turns 60 ${TIMEOUT:+--run-budget "$TIMEOUT"} \
-    --in /opt/testbed 2>&1 | tail -40
+    --in /opt/testbed >"$RUN_LOG" 2>&1
+  AGENT_RC=$?
+  set -e
 else
   command -v claude >/dev/null 2>&1 || /opt/testbed/harness/install-claude-code.sh
   # Strip the YAML frontmatter — claude-code parses a leading '---' as CLI
   # options and errors out ("unknown option '---'"). It is harness metadata,
   # not agent instructions.
   PROMPT_BODY=$(awk 'BEGIN{c=0} /^---[[:space:]]*$/{c++; next} c>=2{print}' "$PROMPT")
-  printf '%s\n' "$PROMPT_BODY" > /tmp/at-prompt-$ID.md
-  # claude-code refuses --dangerously-skip-permissions as root; run as the
-  # 'hermes' user (uid 10000) — also the non-root client path E0 proved.
-  # (su resets the environment, so the API key goes in via a wrapper script.)
+  # claude-code refuses --dangerously-skip-permissions as root. runuser
+  # preserves the allowlisted environment without writing the API key into
+  # a temporary executable or command-line argument.
   chmod -R a+rwX /opt/testbed/results 2>/dev/null || true
   chown -R hermes "/opt/testbed/at${ID#AT}" 2>/dev/null || true
-  {
-    echo '#!/bin/sh'
-    echo "export ANTHROPIC_API_KEY='${ANTHROPIC_API_KEY}'"
-    echo "cd /opt/testbed"
-    echo "exec claude -p \"\$(cat /tmp/at-prompt-$ID.md)\" --dangerously-skip-permissions --model ${MODEL:-haiku}"
-  } > /tmp/at-run-$ID.sh
-  chmod 755 /tmp/at-run-$ID.sh
-  su hermes -s /bin/sh "/tmp/at-run-$ID.sh" 2>&1 | tail -40
-  rm -f "/tmp/at-run-$ID.sh"
+  set +e
+  timeout "$((TIMEOUT + 30))" runuser -u hermes --preserve-environment -- \
+    claude -p "$PROMPT_BODY" --dangerously-skip-permissions \
+    --model "$MODEL" >"$RUN_LOG" 2>&1
+  AGENT_RC=$?
+  set -e
 fi
+tail -40 "$RUN_LOG"
+[ "$AGENT_RC" -eq 0 ] || {
+  echo "VERDICT ${ID}: agent-exit-$AGENT_RC"
+  exit "$AGENT_RC"
+}
 
 # --- verdict ----------------------------------------------------------------
 # Agents sometimes write the report next to their workspace instead of the

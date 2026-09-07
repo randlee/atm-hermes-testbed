@@ -36,12 +36,20 @@ TESTBED_PLATFORM=arm64 ATM_TARBALL=<bundle tarball> \
 ```sh
 TESTBED_PLATFORM=arm64 ./run.sh            # standard isolated run
 TESTBED_PLATFORM=arm64 ./run.sh --peer rand-m5.local   # cross-host mode (Step 6)
+
+# Citable release evidence fails closed unless provenance is supplied:
+ATM_CORE_SHA=<40-hex> CI_RUN_ID=<archive-and-wheel-run-ids> \
+  HERMES_FORK_SHA=<40-hex> TESTBED_PLATFORM=arm64 \
+  ./run.sh --release-proof
 ```
 
 - `run.sh` runs `harness/setup-mtls.sh` automatically (ATM ≥1.4.4 daemons refuse
   to start without mTLS: one enabled peer interface + local certificate).
 - Walls: own `HERMES_HOME=/opt/data/.hermes`, own `/root/.atm`, env allowlist only.
 - Verify daemon up inside: `docker exec hermes-testbed atm doctor` → DAEMON-UP.
+- `--release-proof` forwards the three immutable source identifiers and the
+  inspected image digest. Tier JSON refuses citable status when any is absent;
+  ordinary local runs remain available and mark `evidence.citable=false`.
 
 ## Step 2 — infra matrix (Tier A–D + D7)
 
@@ -51,8 +59,10 @@ docker exec hermes-testbed /opt/testbed/test-graph.sh
 
 - Emits `/opt/testbed/results/tier-{a,b,c,d}.json` (schema v1).
 - Expected on a green release: A 8/8, B 6/6, C 6/6, D 6/6 + D7 PASS.
-- D7 asserts the routing CONTRACT (backendType=herdr persisted, send dispatched
-  without `ATM_HERDR_UNAVAILABLE`, log outcome=sent), not pane-text capture.
+- D7 asserts the routing contract entirely through public structured surfaces:
+  roster `backend=herdr`, send outcome/message ID, that exact ID in the durable
+  receiver mailbox, and post-send Herdr agent reachability. It does not inspect
+  SQLite, daemon-log serialization, or pane text.
 - D7 pitfall: register members WITHOUT `--session`; the default herdr socket is
   the contract. Per-session sockets require matching `HERDR_SESSION` paths.
 
@@ -66,6 +76,10 @@ docker exec hermes-testbed /opt/testbed/harness/run-prompts.sh AT0   # … AT1..
 - Requires `ANTHROPIC_API_KEY` in the allowlist (harness SKIPs otherwise).
 - Each run writes a `prompt-report-1` JSON to `/opt/testbed/results/`;
   the harness echoes PASS/FAIL/SKIP.
+- Prompt execution is unattended-safe: frontmatter must select `haiku` and a
+  positive wall-clock timeout; the harness adds only a 30-second shutdown
+  margin, preserves the agent exit status, and leaves no API key in a
+  generated script or command argument.
 - Harness invariants (do not regress):
   - **NO-SUDO model (solar P0 ruling 2026-09-07, implemented at main 41fc546):**
     the image contains no `sudo` package and no sudoers entries; the daemon

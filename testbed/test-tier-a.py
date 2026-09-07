@@ -140,9 +140,9 @@ def a1_send_read_history(team: str) -> None:
     # DURABILITY (bounded poll): the accepted transition becomes visible —
     # unread drains to 0 and history reaches 1. Deadline 15s (handoff is
     # non-blocking; observed settlement is sub-second on native arm64).
-    deadline = time.time() + 15.0
+    deadline = time.monotonic() + 15.0
     last = {"unread": -1, "history": -1}
-    while time.time() < deadline:
+    while time.monotonic() < deadline:
         d = atm_json(["list", alpha, "--json"], alpha, team)
         last = counts(d)
         if last["history"] == 1 and last["unread"] == 0:

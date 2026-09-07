@@ -91,13 +91,11 @@ class`), in the v1.5.3 tag. It changed the built-in nudge templates in
   from `nudge_template.rs` at the tag) instead of a hand-maintained parallel
   copy, so the want-side cannot silently drift again. Verified byte-exact
   against the product on the pinned image.
-- **D7 (herdr nudge routing):** the message-ULID-in-daemon-log assertion was
-  **dropped** — 1.5.x structured `send` log entries carry `message=null` with
-  `fields={command}` only, so the ULID is no longer in the log shape. D7 now
-  asserts only its **documented routing contract** (send exit 0 + returned id
-  via the product API, `action=send outcome=sent` emitted, herdr agent
-  reachable, backendType=herdr persisted), never ULID presence in the
-  obsolete log shape.
+- **D7 (herdr nudge routing):** private SQLite and daemon-log assertions were
+  **dropped**. D7 now binds one message ID across public structured surfaces:
+  roster `backend=herdr`, `send --json` outcome, and the receiver's durable
+  `list --all --json` mailbox. It also checks that the Herdr agent remains
+  reachable and that the send never reports `ATM_HERDR_UNAVAILABLE`.
 
 **A1 — HOLD RELEASED, expectation repaired per ruling (arch-ctm via fenix,
 solar relay 01M1WXG7TYNN09NWDJEVEKZPGS):** bare-`atm read` returning
@@ -105,9 +103,8 @@ solar relay 01M1WXG7TYNN09NWDJEVEKZPGS):** bare-`atm read` returning
 — `mutation_applied` means the read/seen transition was ACCEPTED by the
 supervised non-blocking handoff, not yet durable. Bare read and
 `--message-id` share `prepare_async_read`/`complete_async_read`; the observed
-difference was scheduling, not semantics. Attribution: **ADR-059 +
-requirements 7.13** (arch-ctm docs/tests PR: TBD — to be added when fenix
-supplies the number). A1 now asserts acceptance synchronously
+difference was scheduling, not semantics. Attribution: **atm-core PR #1278 /
+ADR-059 / requirements 7.13**. A1 now asserts acceptance synchronously
 (`mutation_applied=true`, `selection_mode=actionable`, matching
 `message_id`) and durability by bounded poll of `atm list --json` until
 `unread==0 && history==1` (15s deadline); it never requires

@@ -1,6 +1,6 @@
 #!/bin/sh
 # hermes-docker-testbed — run script
-# Usage: ./run.sh [--persist NAME] [--gateway] [--peer MAC_NAME]
+# Usage: ./run.sh [--persist NAME] [--gateway] [--peer MAC_NAME] [--release-proof]
 # Env: TESTBED_PLATFORM=amd64 (default) | arm64 (native arm64, from 1.4.6 on)
 # Isolation guarantees (non-negotiable):
 #   - NO host mounts: hermes state = /opt/data, atm state = /root/.atm (in-container)
@@ -21,6 +21,7 @@ if git -C "$HERE" ls-files --error-unmatch env/allowlist.env >/dev/null 2>&1; th
 fi
 PERSIST=""
 PEER=""
+RELEASE_PROOF=0
 ARGS=""
 TESTBED_PLATFORM="${TESTBED_PLATFORM:-amd64}"
 case "$TESTBED_PLATFORM" in
@@ -33,9 +34,22 @@ while [ $# -gt 0 ]; do
     --persist) PERSIST="$2"; shift 2 ;;
     --gateway) ARGS="$ARGS -e HERMES_GATEWAY=1"; shift ;;
     --peer) PEER="$2"; shift 2 ;;
+    --release-proof) RELEASE_PROOF=1; shift ;;
     *) echo "unknown arg: $1"; exit 1 ;;
   esac
 done
+
+if [ "$RELEASE_PROOF" -eq 1 ]; then
+  MISSING=""
+  [ -n "${ATM_CORE_SHA:-}" ] || MISSING="$MISSING ATM_CORE_SHA"
+  [ -n "${CI_RUN_ID:-}" ] || MISSING="$MISSING CI_RUN_ID"
+  [ -n "${HERMES_FORK_SHA:-}" ] || MISSING="$MISSING HERMES_FORK_SHA"
+  if [ -n "$MISSING" ]; then
+    echo "FATAL: --release-proof requires:$MISSING" >&2
+    exit 1
+  fi
+  ARGS="$ARGS -e ATM_CORE_SHA -e CI_RUN_ID -e HERMES_FORK_SHA -e TESTBED_RELEASE_PROOF=1"
+fi
 
 # env allowlist — only if the file exists and has at least one non-empty value
 # (BRE pitfall: `+` is literal in grep without -E — use -E here)
@@ -63,7 +77,11 @@ if [ -n "$PEER" ]; then
   echo "  ssh: ssh -p 2222 -i <testbed key> root@localhost   (key-only)"
 fi
 
-docker run -d --name "$NAME" --platform "$DOCKER_PLAT" $ARGS loki/hermes-testbed:testbed
+IMAGE_TAG=loki/hermes-testbed:testbed
+IMAGE_ID=$(docker image inspect "$IMAGE_TAG" --format '{{.Id}}')
+docker run -d --name "$NAME" --platform "$DOCKER_PLAT" \
+  -e TESTBED_IMAGE_TAG="$IMAGE_TAG" -e TESTBED_IMAGE_ID="$IMAGE_ID" \
+  $ARGS "$IMAGE_TAG"
 echo "started: $NAME (platform: $DOCKER_PLAT)"
 sleep 8
 # atm 1.4.4+ hard startup requirement: mTLS peer interface + local identity

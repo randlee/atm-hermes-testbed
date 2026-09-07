@@ -162,15 +162,10 @@ def d7_herdr_nudge_routing(label: str) -> None:
     Assertions target the ROUTING contract, not TUI text rendering:
       1. herdr agent started via `herdr agent start --kind hermes` is
          interactive_ready (herdr side reachable).
-      2. roster member registered with --backend herdr persists
-         backendType=herdr metadata (SQLite team_roster.metadata_json).
-      3. send exits 0, message id returned, and stdout carries NO
+      2. public roster JSON reports backend=herdr.
+      3. structured send result is sent with a message id, and output carries NO
          ATM_HERDR_UNAVAILABLE (the hook dispatched, breaker closed).
-      4. daemon observability log shows action=send outcome=sent (the
-         routing contract). suite/v2: NOT correlated by message ULID in the
-         log — 1.5.x structured entries carry message=null; per-message
-         correlation is via the product API (exit 0 + returned id) and the
-         receiver mailbox, not the obsolete log shape.
+      4. the public receiver mailbox contains that exact message id.
       5. the agent snapshot is still reachable afterwards (agent get).
     """
     team = f"d7-{label}"
@@ -203,41 +198,33 @@ def d7_herdr_nudge_routing(label: str) -> None:
               "--home-dir", "/opt/testbed", "--backend", "herdr")
     assert reg.returncode == 0, reg.stderr[:300]
 
-    # metadata persisted with backendType=herdr
-    import sqlite3 as _sql
-    con = _sql.connect("/root/.atm/db/mail.db")
-    meta = con.execute("select metadata_json from team_roster where team_name=? "
-                       "and agent_name=?", (team, receiver)).fetchone()[0]
-    md = json.loads(meta)
-    assert md.get("backendType") == "herdr", f"backendType missing: {meta}"
+    # Public roster projection reports the selected backend. Do not couple
+    # the fixture to ATM's private SQLite schema.
+    members_result = atm("members", "--team", team, "--json")
+    assert members_result.returncode == 0, members_result.stderr[:300]
+    members = json.loads(members_result.stdout)["members"]
+    receiver_row = next((row for row in members if row["name"] == receiver), None)
+    assert receiver_row and receiver_row.get("backend") == "herdr", receiver_row
 
     # warm the breaker: let the daemon probe herdr successfully once
     time.sleep(2)
 
     # the routing send
     marker = f"D7-{label.upper()}"
-    snd = atm("send", receiver, marker, "--team", team)
+    snd = atm("send", receiver, marker, "--team", team, "--json")
     assert snd.returncode == 0, snd.stderr[:300]
     out = snd.stdout + snd.stderr
     assert "ATM_HERDR_UNAVAILABLE" not in out, \
         f"herdr hook breaker open: {out[:300]}"
-    assert "message_id:" in out or "Sent to" in out, out[:300]
+    sent = json.loads(snd.stdout)
+    assert sent.get("outcome") == "sent" and sent.get("message_id"), sent
 
-    # daemon observability log: the documented routing contract is
-    # action=send outcome=sent (D7 contract item 4). suite/v2 repair
-    # (fenix authorization, atm-core b84a9d2ef0 lineage): the per-message
-    # ULID grep is DROPPED — 1.5.x structured send entries carry
-    # message=null with fields={command} only, so the ULID is no longer
-    # present in the log shape. Correlating the send to this test relies on
-    # the product-API evidence already asserted above (exit 0 + message_id
-    # returned at line ~216) and below (receiver mailbox / agent reach-
-    # able), not on the obsolete log shape. The remaining assertion is the
-    # routing contract only: a send/sent observability event was emitted.
-    log = subprocess.run(["sh", "-c", "grep -c '\"outcome\":\"sent\"' "
-                          "/root/.atm/logs/atm.log.jsonl"],
-                         capture_output=True, text=True)
-    assert log.stdout.strip().isdigit() and int(log.stdout.strip()) > 0, \
-        "no sent outcomes in daemon log"
+    # Bind the send to public durable state instead of a private log shape.
+    listed_result = atm("list", receiver, "--all", "--json")
+    assert listed_result.returncode == 0, listed_result.stderr[:300]
+    rows = json.loads(listed_result.stdout)["rows"]
+    assert any(row.get("message_id") == sent["message_id"] for row in rows), \
+        f"sent message {sent['message_id']} absent from receiver mailbox"
 
     # agent still reachable (the daemon's probe path)
     got = herdr(["agent", "get", agent_name])

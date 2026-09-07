@@ -14,6 +14,12 @@ import time
 from pathlib import Path
 
 RESULTS_DIR = Path("/opt/testbed/results")
+REQUIRED_PROVENANCE_ENV = (
+    "ATM_CORE_SHA",
+    "CI_RUN_ID",
+    "HERMES_FORK_SHA",
+    "TESTBED_IMAGE_ID",
+)
 
 
 def _cli_version(argv: list[str], strip_prefix: str = "") -> str:
@@ -56,6 +62,7 @@ class Recorder:
     def __init__(self) -> None:
         self.tests: list[dict] = []
         self.started = time.time()
+        self.started_monotonic = time.monotonic()
         self.doctor = self._doctor_snapshot()
 
     def record(self, name: str, status: str, detail: str | None = None) -> None:
@@ -79,14 +86,25 @@ class Recorder:
             out = subprocess.run(["atm", "doctor", "--json"], capture_output=True,
                                  text=True, timeout=60)
             doc = json.loads(out.stdout)
+            finding_counts: dict[tuple[str, str], int] = {}
+            for finding in doc.get("findings") or []:
+                severity = str(finding.get("severity", "unknown"))
+                if severity not in {"warning", "error"}:
+                    continue
+                key = (str(finding.get("code", "unknown")), severity)
+                finding_counts[key] = finding_counts.get(key, 0) + 1
             return {
                 "client_version": (doc.get("client_context") or {}).get("version", "unknown"),
                 "daemon_version": (doc.get("daemon_context") or {}).get("version", "unknown"),
                 "doctor_status": (doc.get("summary") or {}).get("status", "unknown"),
+                "doctor_findings": [
+                    {"code": code, "severity": severity, "count": count}
+                    for (code, severity), count in sorted(finding_counts.items())
+                ],
             }
         except Exception:  # noqa: BLE001
             return {"client_version": "unknown", "daemon_version": "unknown",
-                    "doctor_status": "unavailable"}
+                    "doctor_status": "unavailable", "doctor_findings": []}
 
     @staticmethod
     def _provenance() -> dict:
@@ -131,9 +149,21 @@ class Recorder:
             "host": collect_host(),
             "started_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(self.started)),
             "finished_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
-            "duration_ms": int((time.time() - self.started) * 1000),
+            "duration_ms": int((time.monotonic() - self.started_monotonic) * 1000),
+        }
+        gaps = [
+            name for name in REQUIRED_PROVENANCE_ENV
+            if not os.environ.get(name, "").strip()
+        ]
+        doc["evidence"] = {
+            "citable": not gaps,
+            "missing_provenance": gaps,
         }
         RESULTS_DIR.mkdir(parents=True, exist_ok=True)
         path = RESULTS_DIR / f"tier-{tier.lower()}.json"
         path.write_text(json.dumps(doc, indent=2))
+        if gaps and os.environ.get("TESTBED_RELEASE_PROOF") == "1":
+            raise RuntimeError(
+                "release-proof provenance missing: " + ", ".join(gaps)
+            )
         return path
