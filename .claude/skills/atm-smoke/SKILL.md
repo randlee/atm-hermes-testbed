@@ -28,6 +28,9 @@ Partner = the agent named in the request; the partner runs this same skill at th
 each side sends one message and handles the other's. ATM rejects self-addressed sends, so a partner
 is required. Run-id = current unix time, used in your one-line body.
 
+0. **Self round trip first.** Exactly step 4 of `atm-setup-environment` (native: send to yourself;
+   CLI: `atm send <you> --host localhost`), read by id, gone from unread. Observable: id, `count`,
+   `mutation_applied`. If this fails, the partner steps still run.
 1. **Send.** One line `atm-smoke <run-id> from <you>` to the partner, ack required (CLI
    `--requires-ack`; native `requires_ack=True`). Observable: message id A; FAIL with the code on any
    error (`MAY_HAVE_EXECUTED` is a FAIL).

@@ -30,9 +30,16 @@ Record PASS or FAIL for every step with the observable that decided it.
 3. **Doctor passes.** `atm doctor --json`: `.summary.error_count` must be 0.
    List every warning `code` once with its count. `ATM_ROSTER_NO_LEAD` on teams that are not in the
    expected roster is acceptable; any warning on an expected team is FAIL.
-4. **Mailbox readable.** `atm list --unread --json` exits 0 and returns a list (empty is fine).
-   Observable: exit code, count. Self-addressed sends are rejected by ATM (`SelfAddressedSendInvalid`),
-   so no step in any skill sends to itself; the round trip is `atm-smoke` with a partner.
+4. **Self round trip** (the fastest test; every agent runs it first). Send one line to yourself,
+   read it by id, confirm it left the unread list.
+   - native: `atm_send(to=<you>, body)`, then `atm_read(message_id=<id>)`, then `atm_list()`.
+   - CLI: `atm send <you> --host localhost --stdin <<'EOF' … EOF` (a bare same-team self-send is
+     rejected by design; the host-qualified form is the self-send), then
+     `atm read --message-id <id> --json`, then `atm list --unread --json`.
+   Observable: message id; `count` 1 and `mutation_applied` true; id absent from unread afterwards.
+   If the send fails with `no enabled trusted peer matches 'localhost'`, the fix is environment:
+   `atm peer trust add --host localhost --fingerprint $(atm peer certificate show --json | python3 -c 'import json,sys;print(json.load(sys.stdin)["fingerprint"])') --yes`,
+   then retest. Never print the fingerprint in the report.
 
 ## Report
 
