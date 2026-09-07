@@ -19,3 +19,12 @@ can, retested, and reported with `cause / fix / retest`.
 The same directories are linked from `.codex/skills/`. Inside the image they are copied to
 `/opt/hermes/skills/` and synced into `$HERMES_HOME/skills/` at boot. Plan:
 atm-core `docs/plans/phase-aq/sprint-HERMES-SKILL-TESTS-R1.md`.
+
+## When an ATM nudge arrives
+
+An `<atm from=… message-id=…>` block in your input is a nudge from a teammate, not prose. Its
+`<description>` is a truncated summary. First run the `atm read --message-id <id>` line it carries and
+act on the full body; the body is the complete request (fixture, expected roster, report address).
+Never ask for clarification: nobody is watching and nobody answers. If a value is really missing, run
+every step you can and report FAIL for the step that needed it, cause `request lacked <value>`. When the
+message was sent with `--requires-ack`, `atm ack <id>` after the report is sent.

@@ -80,6 +80,7 @@ COPY .claude/skills/atm-troubleshoot /opt/hermes/skills/atm-troubleshoot
 # cwd /opt/testbed: Claude Code reads <cwd>/.claude/skills, Codex reads <cwd>/.codex/skills + AGENTS.md.
 COPY .claude/skills /opt/testbed/.claude/skills
 COPY AGENTS.md /opt/testbed/AGENTS.md
+COPY CLAUDE.md /opt/testbed/CLAUDE.md
 RUN mkdir -p /opt/testbed/.codex/skills && for s in /opt/testbed/.claude/skills/*; do ln -sfn "../../.claude/skills/$(basename "$s")" "/opt/testbed/.codex/skills/$(basename "$s")"; done
 COPY testbed/atm.toml /opt/testbed/.atm.toml
 COPY --chmod=0755 testbed/stub-agent.sh /opt/testbed/stub-agent.sh
