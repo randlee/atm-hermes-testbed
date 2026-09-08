@@ -11,7 +11,9 @@ from `hendrix/hendrix/loki/docker-testbed` (full history preserved there).
 One script installs everything in colima and starts it, no arguments, working the first time:
 
 1. **Hermes**: the most recent fork build, `randlee/hermes-agent` = latest upstream Hermes release + the ATM patch. The installed SHA is recorded.
-2. **herdr**: the latest `herdrdev/herdr` GitHub release, sha256-checked.
+2. **herdr**: `brew install herdr` (homebrew-core, 0.8.2). Inside the Linux container homebrew-core has no
+   herdr bottle (only `arm64_tahoe`), so `install.sh` takes the same 0.8.2 binary from the GitHub release,
+   sha256-checked; on a Mac the brew command is the install.
 3. **ATM**: the latest `prerelease/vX.Y.Z` tag of `randlee/atm-core`: CI tarball for the daemon and CLI, CI wheels for `hermes_atm` and `atm_graft`, then `hermes_atm install`.
 
 Then the ATM daemon and the Hermes gateway are up, and the integration test is the five `atm-*` skills
