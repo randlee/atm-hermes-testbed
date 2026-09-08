@@ -7,8 +7,11 @@
 set -eu
 
 HERE="$(cd "$(dirname "$0")" && pwd)"
-FORK=~/Documents/github/hermes-agent-randlee
-FORK_WT=~/Documents/github/hermes-agent-randlee-worktrees/testbed-build
+# Hermes fork: nothing on local disk is referenced. The fork is cloned from its URL into
+# .cache/ (gitignored) and built at HERMES_REF (default main = latest upstream release + ATM patch).
+FORK_URL=https://github.com/randlee/hermes-agent.git
+HERMES_REF="${HERMES_REF:-main}"
+FORK_WT="$HERE/.cache/hermes-agent"
 # (wheelhouse retired 2026-09-04 — wheels via WHEELS_DIR only)
 
 # ── Platform switch (AR: #1097 ships a native aarch64 tarball from 1.4.6 on) ──
@@ -110,18 +113,18 @@ fetch_assets() {
 
 build_base() {
   echo "== building loki/hermes-testbed:base (fork image, --extra matrix dropped) =="
-  # NEVER build from the primary checkout — it may be stale. Build from a
-  # detached worktree freshly reset to origin/main (seam lives on main).
-  cd "$FORK"
-  git fetch origin main
-  if ! git worktree list | grep -q testbed-build; then
-    git worktree add --detach "$FORK_WT" origin/main
-  fi
-  git -C "$FORK_WT" checkout --detach origin/main
-  echo "base context: $(git -C "$FORK_WT" log --oneline -1)"
+  # Build from a fresh clone of the fork URL at HERMES_REF; never from anyone's checkout.
+  mkdir -p "$HERE/.cache"
+  if [ ! -d "$FORK_WT/.git" ]; then git clone --quiet "$FORK_URL" "$FORK_WT"; fi
+  git -C "$FORK_WT" fetch --quiet origin "$HERMES_REF"
+  git -C "$FORK_WT" checkout --quiet --detach FETCH_HEAD
+  HERMES_SHA="$(git -C "$FORK_WT" rev-parse HEAD)"
+  echo "$HERMES_SHA" > "$HERE/.cache/hermes-sha"
+  echo "base context: $HERMES_REF = $(git -C "$FORK_WT" log --oneline -1)"
   grep -c "inject_internal_message" "$FORK_WT/gateway/run.py" >/dev/null || \
-    { echo "FATAL: seam missing in build context"; exit 1; }
+    { echo "FATAL: ATM patch (inject_internal_message) missing at $HERMES_REF"; exit 1; }
   DOCKER_BUILDKIT=1 docker buildx build --platform "$DOCKER_PLAT" --load \
+    --build-arg HERMES_GIT_SHA="$HERMES_SHA" \
     -t loki/hermes-testbed:base -f "$HERE/Dockerfile.base" "$FORK_WT"
 }
 

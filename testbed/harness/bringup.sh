@@ -4,7 +4,7 @@
 #   1 ATM daemon        (trust store is snapshotted at daemon start, so trust must exist before this)
 #   2 perms + symlink   (the hermes user reaches the daemon socket/db through /opt/data/.atm)
 #   3 herdr server      (socket world-writable so the hermes-user Claude Code hook reports its state)
-#   4 roster            (team `testbed`: stub-alpha, stub-beta, tester[herdr], hermes)
+#   4 roster            (team `testbed`: stub-alpha, stub-beta, tester[herdr], hermes, oversight)
 #   5 hermes-atm hook   (as hermes, from the profile dir /opt/data), receiver dir, gateway restart
 #   6 Claude Code tester(herdr hook for hermes, hmux team from /opt/testbed/.atm.toml, agent rename)
 set -eu
@@ -43,6 +43,7 @@ atm teams add-member "$TEAM" stub-alpha --agent-type lead   --home-dir /opt/test
 atm teams add-member "$TEAM" stub-beta  --agent-type stub   --home-dir /opt/testbed >/dev/null 2>&1 || true
 atm teams add-member "$TEAM" tester     --agent-type claude --home-dir /opt/testbed --backend herdr >/dev/null 2>&1 || true
 atm teams add-member "$TEAM" hermes     --agent-type hermes --home-dir /opt/data >/dev/null 2>&1 || true
+atm teams add-member "$TEAM" oversight  --agent-type stub   --home-dir /opt/testbed >/dev/null 2>&1 || true   # test.sh reads the reports as this identity
 # 5 (hermes agents launch from their profile: user hermes, HERMES_HOME=HOME=cwd=/opt/data)
 $AS_HERMES sh -c "cd /opt/data && /opt/hermes/.venv/bin/python -m hermes_atm install --profile default --profile-home /opt/data --identity hermes --team $TEAM --chat-id $CHAT_ID --atm-home /root/.atm --workspace-root /opt/testbed" >/tmp/hermes-atm-install.log 2>&1 || echo "bringup: WARN hermes_atm install failed (see /tmp/hermes-atm-install.log)"
 $AS_HERMES sh -c "cd /opt/data && hermes plugins enable hermes-atm-native-tools" >/dev/null 2>&1 || true
