@@ -142,8 +142,8 @@ line. Everything arrives in `$O`'s inbox (`atm list --unread --json`, `atm read 
 and nobody waits wondering: every skill's first action is one line `ATM TEST START skill: … agent: …`
 (within ~30 s of the sentence), every 60 s of waiting on a deadline one line `ATM TEST WAIT … <elapsed>s/<deadline>s`,
 then the one report. Deadlines are short: 120 s for a gateway pong (hermes-ready), 300 s for anything the
-partner agent must do (its message, its ack); a skill is 1–5 minutes end to end. Rehearsed 2026-09-07 on a
-fresh image: seven sentences, seven reports, 13.5 minutes. No START within 60 s = the agent did not launch: read it
+partner agent must do (its message, its ack); a skill is 1–5 minutes end to end. Rehearsed 2026-09-08 (run 8,
+`./test.sh`, image cached): seven sentences, seven reports, 5 minutes; 13.5 minutes on 2026-09-07 with the headless Hermes path. No START within 60 s = the agent did not launch: read it
 (`docker exec hermes-testbed herdr pane read <pane> --source recent --lines 60`, or the gateway log `/opt/data/logs/agent.log`) — a finding for the post-mortem, not a reason to stop the other sentences.
 
 ## 6. Post-mortem
