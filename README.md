@@ -18,6 +18,9 @@ Then the ATM daemon and the Hermes gateway are up, and the integration test is t
 in `.claude/skills/` run by one sentence each (see `SMOKE-TEST-RUNBOOK.md`). Everything below this
 line is the current machinery; where it disagrees with these three lines, these three lines win.
 
+Definition of done: a fresh agent given only this repository runs the one command to a PASS or FAIL
+without help. Until that has happened, nothing here is done.
+
 ## Goal
 
 Run the hermes-agent fork (`randlee/hermes-agent`, branch `main`) inside a Docker
