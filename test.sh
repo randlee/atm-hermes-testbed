@@ -81,16 +81,13 @@ echo "$VERSIONS"
 
 # ── 4. seven sentences, seven reports ───────────────────────────────────────────────────────────
 # t: the Claude Code tester (tester@testbed) is nudged over ATM as stub-alpha.
-# h: the Hermes agent (hermes@testbed) is driven with the headless CLI as the hermes user (the
-#    receiver injects only into a Telegram adapter until atm-core #1307 lands). Runs in the background.
+# h: the Hermes gateway agent (hermes@testbed) is nudged the same way (atm-core #1307 landed in 1.5.8: the
+#    hermes-atm receiver injects into the api_server platform). Run 3 (1.5.8) proved a headless CLI hermes
+#    beside the gateway loses the race for the partner's message: one identity, one actor.
 t() { printf '%s\n' "$1" | docker exec -i -e ATM_IDENTITY=stub-alpha -e ATM_TEAM=$TEAM "$NAME" atm send tester --requires-ack --stdin >/dev/null \
         && echo "sent to tester: ${1%% and send*}" || echo "SEND FAILED to tester: $1"; }
-h() { skill=$1; shift
-      printf '%s\n' "$1" | docker exec -i "$NAME" sh -c 'cat > /tmp/smoke-prompt.md; chmod 644 /tmp/smoke-prompt.md'
-      echo "sent to hermes: ${1%% and send*}"
-      docker exec -e ATM_IDENTITY=hermes -e ATM_TEAM=$TEAM "$NAME" hermes -p default chat --query-file /tmp/smoke-prompt.md \
-        --skills "$skill" -m claude-haiku-4-5-20251001 --provider anthropic --yolo --accept-hooks --max-turns 60 --in /opt/data \
-        > "$RUN_DIR/hermes-$skill.log" 2>&1 & }
+h() { printf '%s\n' "$1" | docker exec -i -e ATM_IDENTITY=stub-alpha -e ATM_TEAM=$TEAM "$NAME" atm send hermes --requires-ack --stdin >/dev/null \
+        && echo "sent to hermes: ${1%% and send*}" || echo "SEND FAILED to hermes: $1"; }
 
 REPORTS=0
 # wait_for N: poll the oversight inbox until N reports have arrived in total (or the deadline passes),
@@ -119,20 +116,19 @@ for r in json.load(sys.stdin).get("rows", []): print(r["message_id"])' 2>/dev/nu
 
 step "atm-setup-environment (tester + hermes)"
 t "run the atm-setup-environment skill on fixture $F (expected roster: $R) and send the report to $O"
-h atm-setup-environment "run the atm-setup-environment skill on fixture $F (expected roster: $R) and send the report to $O"
+h "run the atm-setup-environment skill on fixture $F (expected roster: $R) and send the report to $O"
 wait_for 2
 step "atm-smoke (tester + hermes)"
 t "run the atm-smoke skill against hermes@$TEAM on fixture $F and send the report to $O"
-h atm-smoke "run the atm-smoke skill against tester@$TEAM on fixture $F and send the report to $O"
+h "run the atm-smoke skill against tester@$TEAM on fixture $F and send the report to $O"
 wait_for 4
 step "atm-hermes-ready (tester)"
 t "run the atm-hermes-ready skill for hermes@$TEAM on fixture $F and send the report to $O"
 wait_for 5
 step "atm-nudge-roundtrip (tester + hermes)"
 t "run the atm-nudge-roundtrip skill as tester against hermes@$TEAM on fixture $F and send the report to $O"
-h atm-nudge-roundtrip "run the atm-nudge-roundtrip skill as responder on fixture $F and send the report to $O"
+h "run the atm-nudge-roundtrip skill as responder on fixture $F and send the report to $O"
 wait_for 7
-wait  # background hermes chats
 
 # ── 5. verdict ──────────────────────────────────────────────────────────────────────────────────
 step "verdict"

@@ -92,7 +92,7 @@ What it does, in order (all rerunnable; `run.sh` prints one line per step):
    ATM's herdr backend matches the roster name).
 
 Hermes agents launch from their profile: user `hermes`, `HERMES_HOME=HOME=/opt/data`, cwd `/opt/data`.
-The gateway does; the headless CLI line in §5 does the same. Verify (30 seconds):
+The gateway does. Verify (30 seconds):
 
 ```sh
 atm doctor --json | jq .summary
@@ -111,18 +111,15 @@ works, verified). When #1309 lands, `t()` becomes `atm send tester@testbed.$F ..
 ## 5. The run-book (seven sentences, seven reports)
 
 `T` = the Claude Code tester inside the fixture (`tester@testbed`, driven by ATM nudges through herdr).
-`H` = the Hermes agent inside the fixture (`hermes@testbed`). Until atm-core #1307 lands (the hermes-atm
-receiver injects only into a Telegram adapter, and the fixture gateway has none), `H` is driven with the
-headless CLI, as the hermes user from the profile dir (loki's proof recipe, rehearsed 2026-09-07: the
-`/opt/hermes/bin/hermes` shim drops root → hermes; the model must be the full id):
+`H` = the Hermes gateway agent inside the fixture (`hermes@testbed`), driven by ATM nudges exactly like `T`
+(atm-core #1307 landed in 1.5.8: the hermes-atm receiver injects into the `api_server` platform). Run 3
+(1.5.8, 2026-09-08) proved that a headless `hermes chat` beside the gateway is a second actor under one
+identity: the gateway read and answered the tester's smoke message first, the CLI session timed out on it.
+One identity, one actor; there is no CLI path any more.
 
 ```sh
-# h <skill> "<sentence>": -p default pins the profile root (skills are read only from $HERMES_HOME/skills),
-# --skills preloads the named skill, --yolo --accept-hooks make it unattended (skillrx; fork base Hermes 0.21.0).
-h() { docker exec hermes-testbed sh -c "printf '%s\n' \"$2\" > /tmp/smoke-prompt.md; chmod 644 /tmp/smoke-prompt.md"
-      docker exec -e ATM_IDENTITY=hermes -e ATM_TEAM=testbed hermes-testbed hermes -p default chat --query-file /tmp/smoke-prompt.md \
-        --skills "$1" -m claude-haiku-4-5-20251001 --provider anthropic --yolo --accept-hooks --max-turns 60 --in /opt/data; }
 t() { docker exec -i -e ATM_IDENTITY=stub-alpha -e ATM_TEAM=testbed hermes-testbed atm send tester --requires-ack --stdin <<<"$1"; }
+h() { docker exec -i -e ATM_IDENTITY=stub-alpha -e ATM_TEAM=testbed hermes-testbed atm send hermes --requires-ack --stdin <<<"$1"; }
 ```
 
 Send in this order; the two smoke sentences together, the two roundtrip sentences together; otherwise wait
@@ -131,12 +128,12 @@ skill needs one, and the report address with its `.host` suffix.
 
 ```
 t "run the atm-setup-environment skill on fixture $F (expected roster: $R; peer host $M) and send the report to $O"
-h atm-setup-environment "run the atm-setup-environment skill on fixture $F (expected roster: $R; peer host $M) and send the report to $O"
+h "run the atm-setup-environment skill on fixture $F (expected roster: $R; peer host $M) and send the report to $O"
 t "run the atm-smoke skill against hermes@testbed on fixture $F and send the report to $O"
-h atm-smoke "run the atm-smoke skill against tester@testbed on fixture $F and send the report to $O"
+h "run the atm-smoke skill against tester@testbed on fixture $F and send the report to $O"
 t "run the atm-hermes-ready skill for hermes@testbed on fixture $F and send the report to $O"
 t "run the atm-nudge-roundtrip skill as tester against hermes@testbed on fixture $F and send the report to $O"
-h atm-nudge-roundtrip "run the atm-nudge-roundtrip skill as responder on fixture $F and send the report to $O"
+h "run the atm-nudge-roundtrip skill as responder on fixture $F and send the report to $O"
 ```
 
 The same seven sentences, same skills, run on this host against the local team (fixture `$M`, no peer)
@@ -147,8 +144,7 @@ and nobody waits wondering: every skill's first action is one line `ATM TEST STA
 then the one report. Deadlines are short: 120 s for a gateway pong (hermes-ready), 300 s for anything the
 partner agent must do (its message, its ack); a skill is 1–5 minutes end to end. Rehearsed 2026-09-07 on a
 fresh image: seven sentences, seven reports, 13.5 minutes. No START within 60 s = the agent did not launch: read it
-(`docker exec hermes-testbed herdr pane read <pane> --source recent --lines 60`, or the `hermes chat`
-output) — a finding for the post-mortem, not a reason to stop the other sentences.
+(`docker exec hermes-testbed herdr pane read <pane> --source recent --lines 60`, or the gateway log `/opt/data/logs/agent.log`) — a finding for the post-mortem, not a reason to stop the other sentences.
 
 ## 6. Post-mortem
 
