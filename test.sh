@@ -50,9 +50,10 @@ esac
 PRE="$(gh run list -R "$ATM_REPO" --workflow prerelease-archive.yml --branch "$TAG" --json databaseId,conclusion \
        --jq 'first(.[]|select(.conclusion=="success"))|.databaseId')"
 [ -n "$PRE" ] || die "no successful prerelease-archive.yml run for $TAG"
-CI="$(gh api "repos/$ATM_REPO/actions/workflows/ci.yml/runs?head_sha=$SHA" \
-      --jq 'first(.workflow_runs[]|select(.conclusion=="success"))|.id')"
-[ -n "$CI" ] || die "no successful ci.yml run for $SHA (the commit under $TAG)"
+# The wheels are uploaded by an early ci.yml job, so the run's overall conclusion does not matter;
+# a missing artifact fails the download below.
+CI="$(gh api "repos/$ATM_REPO/actions/workflows/ci.yml/runs?head_sha=$SHA" --jq 'first(.workflow_runs[])|.id')"
+[ -n "$CI" ] || die "no ci.yml run for $SHA (the commit under $TAG)"
 ARCH="$(if [ "$(uname -m)" = arm64 ] || [ "$(uname -m)" = aarch64 ]; then echo aarch64; else echo x86_64; fi)"
 echo "atm $V = $TAG @ $(echo "$SHA" | cut -c1-9); prerelease-archive run $PRE; ci run $CI; arch $ARCH"
 
