@@ -2,7 +2,7 @@
 
 Every command below is exact. Nothing is decided, edited or babysat during a run. Total: ~30 minutes
 including the image build (10–20 minutes, once per input change), ~10 minutes after. Plan and rules:
-atm-core `docs/plans/phase-aq/sprint-HERMES-SKILL-TESTS-R1.md`. If a line here is wrong, the run stops,
+atm-core `docs/plans/hermes-integration-tests/sprint-HERMES-SKILL-TESTS-R1.md`. If a line here is wrong, the run stops,
 the line gets fixed in this file (or the script it calls) and committed, and the run restarts. That is
 the only "ceremony": the next run must not hit the same thing twice.
 
@@ -152,7 +152,7 @@ output) — a finding for the post-mortem, not a reason to stop the other senten
 
 ## 6. Post-mortem
 
-One file in atm-core, `docs/plans/phase-aq/reports/hermes-skill-tests-<V>-<fixture>.md`, from the seven
+One file in atm-core, `docs/plans/hermes-integration-tests/reports/hermes-skill-tests-<V>-<fixture>.md`, from the seven
 reports (template in the plan) plus every line of this runbook that had to change. Then `./teardown.sh`.
 
 ## When a line says FAIL

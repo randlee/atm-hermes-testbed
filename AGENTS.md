@@ -18,7 +18,7 @@ can, retested, and reported with `cause / fix / retest`.
 
 The same directories are linked from `.codex/skills/`. Inside the image they are copied to
 `/opt/hermes/skills/` and synced into `$HERMES_HOME/skills/` at boot. Plan:
-atm-core `docs/plans/phase-aq/sprint-HERMES-SKILL-TESTS-R1.md`.
+atm-core `docs/plans/hermes-integration-tests/sprint-HERMES-SKILL-TESTS-R1.md`.
 
 ## When an ATM nudge arrives
 
