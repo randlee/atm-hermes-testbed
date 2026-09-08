@@ -106,7 +106,11 @@ for r in json.load(sys.stdin).get("rows", []): print(r["message_id"])' 2>/dev/nu
         "ATM TEST REPORT"*)
           REPORTS=$((REPORTS+1)); printf '%s\n' "$body" > "$RUN_DIR/report-$REPORTS.txt"
           slot="$(printf '%s\n' "$body" | grep -E '^(skill|agent):' | tr '\n' ' ')"
-          case "$SLOTS_SEEN" in *"|$slot|"*) dup=" (repeat, not counted)" ;; *) SLOTS_SEEN="$SLOTS_SEEN|$slot|"; DISTINCT=$((DISTINCT+1)); dup="" ;; esac
+          case "$slot" in
+            "skill: atm-setup-environment "*|"skill: atm-smoke "*|"skill: atm-hermes-ready "*|"skill: atm-nudge-roundtrip "*)
+              case "$SLOTS_SEEN" in *"|$slot|"*) dup=" (repeat, not counted)" ;; *) SLOTS_SEEN="$SLOTS_SEEN|$slot|"; DISTINCT=$((DISTINCT+1)); dup="" ;; esac ;;
+            *) dup=" (not one of the seven, not counted)" ;;   # e.g. an atm-troubleshoot report from a root-cause pass (run 7)
+          esac
           echo "REPORT $REPORTS: $(printf '%s\n' "$body" | grep -E '^(skill|agent|result):' | tr '\n' ' ')$dup" ;;
         "ATM TEST START"*|"ATM TEST WAIT"*) echo "$body" | head -1 ;;
         *) echo "other message from the fixture ($(printf '%s' "$body" | wc -c | tr -d ' ') bytes)" ;;
@@ -142,7 +146,8 @@ import sys,re
 slots={}
 for block in sys.stdin.read().split("ATM TEST REPORT")[1:]:
     skill=re.search(r"^skill: (\S+)",block,re.M); agent=re.search(r"^agent: (\S+)",block,re.M); result=re.search(r"^result: (PASS|FAIL)",block,re.M)
-    if skill and agent and result: slots[(skill.group(1),agent.group(1))]=result.group(1)
+    if skill and agent and result and skill.group(1) in ("atm-setup-environment","atm-smoke","atm-hermes-ready","atm-nudge-roundtrip"):
+        slots[(skill.group(1),agent.group(1))]=result.group(1)
 print(len(slots), sum(1 for v in slots.values() if v=="PASS"))')"
 FILLED=${SLOTS% *}; PASSED=${SLOTS#* }
 if [ "$FILLED" -eq 7 ] && [ "$PASSED" -eq 7 ]; then VERDICT=PASS; else VERDICT=FAIL; fi

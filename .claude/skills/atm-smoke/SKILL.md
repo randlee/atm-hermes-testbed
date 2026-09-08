@@ -35,7 +35,7 @@ S. **Start line.** Send ONE line `ATM TEST START skill: atm-smoke fixture: <fixt
    `--host localhost` loop is the one form that works). Then `atm list --unread --json`, `atm read
    --message-id <id>`, list again: gone from unread. Observable: id, `count`, `mutation_applied`. Do not
    open or run any other skill for this. If this fails, the partner steps still run.
-1. **Send.** One line `atm-smoke <run-id> from <you>` to the partner, ack required (CLI
+1. **Send.** Take `T=$(date -u +%Y-%m-%dT%H:%M:%SZ)`, then one line `atm-smoke <run-id> from <you>` to the partner, ack required (CLI
    `--requires-ack`; native `requires_ack=True`). Observable: message id A; FAIL with the code on any
    error (`MAY_HAVE_EXECUTED` is a FAIL).
 2. **Partner's message arrives.** Every 10 s for up to 300 s run exactly
@@ -55,10 +55,11 @@ S. **Start line.** Send ONE line `ATM TEST START skill: atm-smoke fixture: <fixt
    the queued handoff). Observable: `read`.
 6. **Stale-connection probe.** Do nothing for 5 s, then list. Observable: exit or error code; FAIL on
    `MAY_HAVE_EXECUTED`, `RequestWrite`, or a connection error.
-7. **Ack.** Ack B with reply `atm-smoke ack <run-id>`. Observable: exit or error code.
+7. **Ack.** Ack B with reply `atm-smoke ack <B's run-id>`: the run-id in B's own line, the partner's, not
+   yours (run 7: an ack carrying the acker's own id matched nothing on the other side). Observable: exit or error code.
 8. **Your message got acked.** Every 10 s for up to 300 s run exactly
-   `atm list --unread --from <partner bare name> --contains "atm-smoke ack <run-id>" --json`; `count` 1
-   means the partner's ack reply arrived: read it by id. Observable: seconds, or timeout.
+   `atm list --unread --from <partner bare name> --contains "atm-smoke ack" --since "$T" --json` (T from
+   step 1); `count` 1 or more means the partner's ack reply arrived: read it by id. Observable: seconds, or timeout.
    (`atm list --pending-ack` shows what *you* still owe, so it is not the observable here.)
 
 ## Report
