@@ -19,6 +19,10 @@ for i in $(seq 1 20); do pgrep -x atm-daemon >/dev/null 2>&1 || break; sleep 1; 
 FP=$(atm peer certificate show --json 2>/dev/null | python3 -c 'import json,sys; print(json.load(sys.stdin)["fingerprint"])')
 atm peer trust add --host localhost --fingerprint "$FP" --https-port 43101 --yes >/dev/null 2>&1 \
   || atm peer trust replace --host localhost --fingerprint "$FP" --https-port 43101 --yes >/dev/null 2>&1 || true
+# The daemon's herdr transport is read once at start from its home config (/root/.atm.toml, [herdr]).
+# 1.5.9 defaults to "socket" (native IPC); written explicitly so a run proves the mode instead of assuming
+# the default. atm doctor --json reports it under .herdr.endpoints[].transport (test.sh prints that line).
+printf '[herdr]\ntransport = "socket"\n' > /root/.atm.toml
 start_daemon() {
   rm -f /root/.atm/daemon/owner.lock /root/.atm/daemon/local-http.json
   nohup atm-daemon >>/tmp/atm-daemon.log 2>&1 &

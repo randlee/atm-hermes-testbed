@@ -78,6 +78,11 @@ step "start the fixture"
 grep '^bringup:' "$RUN_DIR/run.log"
 VERSIONS="$(docker exec "$NAME" sh -c 'printf "hermes %s | %s | %s\n" "$(hermes --version 2>/dev/null | grep -im1 hermes)" "$(atm-daemon --version)" "$(herdr --version)"')"
 echo "$VERSIONS"
+docker exec "$NAME" atm doctor --json 2>/dev/null | python3 -c 'import json,sys; json.dump(json.load(sys.stdin).get("herdr",{}), sys.stdout, indent=1)' > "$RUN_DIR/herdr-doctor.json"
+HERDR_TRANSPORT="$(python3 -c 'import json,sys
+e=json.load(open(sys.argv[1])).get("endpoints",[])
+print(", ".join(sorted({"%s (%s)" % (x.get("transport","?"), x.get("state","?")) for x in e})) or "no herdr endpoint observed")' "$RUN_DIR/herdr-doctor.json")"
+echo "herdr transport (fixture daemon, atm doctor): $HERDR_TRANSPORT"
 
 # ── 4. seven sentences, seven reports ───────────────────────────────────────────────────────────
 # t: the Claude Code tester (tester@testbed) is nudged over ATM as stub-alpha.
@@ -156,6 +161,7 @@ if [ "$FILLED" -eq 7 ] && [ "$PASSED" -eq 7 ]; then VERDICT=PASS; else VERDICT=F
   echo "atm:    $V ($TAG @ $(echo "$SHA" | cut -c1-9), prerelease-archive run $PRE, ci run $CI)"
   echo "hermes: randlee/hermes-agent @ $(echo "$HERMES_SHA" | cut -c1-9)"
   echo "$VERSIONS"
+  echo "herdr transport: $HERDR_TRANSPORT (atm doctor --json .herdr.endpoints[].transport; bringup writes [herdr] transport=\"socket\" to /root/.atm.toml)"
   for f in "$RUN_DIR"/report-*.txt; do
     [ -f "$f" ] || continue
     grep -E '^(skill|agent|result):' "$f" | tr '\n' ' '; echo
@@ -164,4 +170,31 @@ if [ "$FILLED" -eq 7 ] && [ "$PASSED" -eq 7 ]; then VERDICT=PASS; else VERDICT=F
   echo "reports and logs: $RUN_DIR"
   echo "the fixture is still running: docker exec $NAME ... ; ./teardown.sh when done"
 } | tee "$RUN_DIR/result.txt"
+
+# ── 6. evidence bundle in atm-core's site/reports shape ─────────────────────────────────────────
+# Byte-for-byte copies of the run's outputs plus the two files the report index needs (an index.html and a
+# smoke envelope, see atm-core .just/generate_report_index.py). Publish: copy $RUN_DIR/site/* into
+# atm-core site/reports/ on an evidence branch and run `python3 .just/generate_report_index.py` there.
+SITE_REL="smoke/linux/$F/$(basename "$RUN_DIR")-colima-hermes-skills"
+SITE="$RUN_DIR/site/$SITE_REL"; mkdir -p "$SITE"
+cp "$RUN_DIR"/result.txt "$RUN_DIR"/herdr-doctor.json "$SITE"/; cp "$RUN_DIR"/report-*.txt "$SITE"/ 2>/dev/null || true
+python3 - "$SITE" "$SITE_REL" "$VERDICT" "$F" <<'PY2'
+import html, json, os, sys, datetime
+site, rel, verdict, host = sys.argv[1:5]
+now = datetime.datetime.now(datetime.timezone.utc).isoformat()
+files = sorted(f for f in os.listdir(site) if f != "index.html" and not f.endswith(".envelope.json"))
+result = open(os.path.join(site, "result.txt")).read()
+links = "".join('<li><a href="%s">%s</a></li>' % (html.escape(f), html.escape(f)) for f in files)
+open(os.path.join(site, "index.html"), "w").write(
+    "<!doctype html>\n<html lang=\"en\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">"
+    "<title>ATM colima integration: hermes skills</title>"
+    "<style>body{font:16px system-ui,sans-serif;max-width:64rem;margin:2rem auto;padding:0 1rem;line-height:1.5}pre{background:#f7f9fa;padding:1rem;overflow:auto}</style></head>"
+    "<body><h1>ATM colima integration: hermes skills</h1><p>Fixture <code>%s</code> (atm-hermes-testbed <code>./test.sh</code>), generated %s. Verdict: <strong>%s</strong>.</p>"
+    "<h2>result.txt</h2><pre>%s</pre><h2>Files (unedited run outputs)</h2><ul>%s</ul></body></html>\n"
+    % (html.escape(host), html.escape(now), html.escape(verdict), html.escape(result), links))
+json.dump({"schema_version": 1, "report_type": "smoke", "generated_at": now, "host_label": host,
+           "report_html": rel + "/index.html", "status": verdict},
+          open(os.path.join(site, "smoke.envelope.json"), "w"), indent=2)
+PY2
+echo "site evidence: $RUN_DIR/site ($SITE_REL)"
 [ "$VERDICT" = PASS ]
