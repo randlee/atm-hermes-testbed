@@ -76,7 +76,7 @@ grep -E '^(base context|atm tarball override|wheels override):' "$RUN_DIR/build.
 step "start the fixture"
 "$HERE/run.sh" --gateway --no-peer > "$RUN_DIR/run.log" 2>&1 || { tail -20 "$RUN_DIR/run.log"; die "run.sh failed (full log: $RUN_DIR/run.log)"; }
 grep '^bringup:' "$RUN_DIR/run.log"
-VERSIONS="$(docker exec "$NAME" sh -c 'printf "hermes %s | %s | %s\n" "$(hermes --version 2>/dev/null | tail -1)" "$(atm-daemon --version)" "$(herdr --version)"')"
+VERSIONS="$(docker exec "$NAME" sh -c 'printf "hermes %s | %s | %s\n" "$(hermes --version 2>/dev/null | grep -im1 hermes)" "$(atm-daemon --version)" "$(herdr --version)"')"
 echo "$VERSIONS"
 
 # ── 4. seven sentences, seven reports ───────────────────────────────────────────────────────────
@@ -136,10 +136,18 @@ wait  # background hermes chats
 
 # ── 5. verdict ──────────────────────────────────────────────────────────────────────────────────
 step "verdict"
-PASSED=$(cat "$RUN_DIR"/report-*.txt 2>/dev/null | grep -c '^result: PASS' || true)
-if [ "$REPORTS" -eq 7 ] && [ "$PASSED" -eq 7 ]; then VERDICT=PASS; else VERDICT=FAIL; fi
+# One slot per (skill, agent); a skill that reports twice fills its slot once and the last report wins.
+SLOTS="$(cat "$RUN_DIR"/report-*.txt 2>/dev/null | python3 -c '
+import sys,re
+slots={}
+for block in sys.stdin.read().split("ATM TEST REPORT")[1:]:
+    skill=re.search(r"^skill: (\S+)",block,re.M); agent=re.search(r"^agent: (\S+)",block,re.M); result=re.search(r"^result: (PASS|FAIL)",block,re.M)
+    if skill and agent and result: slots[(skill.group(1),agent.group(1))]=result.group(1)
+print(len(slots), sum(1 for v in slots.values() if v=="PASS"))')"
+FILLED=${SLOTS% *}; PASSED=${SLOTS#* }
+if [ "$FILLED" -eq 7 ] && [ "$PASSED" -eq 7 ]; then VERDICT=PASS; else VERDICT=FAIL; fi
 {
-  echo "$VERDICT  reports $REPORTS/7, PASS $PASSED/7"
+  echo "$VERDICT  skills reported $FILLED/7, PASS $PASSED/7 ($REPORTS report messages)"
   echo "atm:    $V ($TAG @ $(echo "$SHA" | cut -c1-9), prerelease-archive run $PRE, ci run $CI)"
   echo "hermes: randlee/hermes-agent @ $(echo "$HERMES_SHA" | cut -c1-9)"
   echo "$VERSIONS"
