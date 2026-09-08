@@ -117,11 +117,14 @@ build_base() {
     git worktree add --detach "$FORK_WT" origin/main
   fi
   git -C "$FORK_WT" checkout --detach origin/main
+  FORK_SHA=$(git -C "$FORK_WT" rev-parse HEAD)
   echo "base context: $(git -C "$FORK_WT" log --oneline -1)"
   grep -c "inject_internal_message" "$FORK_WT/gateway/run.py" >/dev/null || \
     { echo "FATAL: seam missing in build context"; exit 1; }
   DOCKER_BUILDKIT=1 docker buildx build --platform "$DOCKER_PLAT" --load \
+    --build-arg HERMES_GIT_SHA="$FORK_SHA" \
     -t loki/hermes-testbed:base -f "$HERE/Dockerfile.base" "$FORK_WT"
+  echo "== base build done: fork SHA $FORK_SHA stamped at /opt/hermes/.hermes_build_sha =="
 }
 
 build_testbed() {
