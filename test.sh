@@ -83,6 +83,10 @@ HERDR_TRANSPORT="$(python3 -c 'import json,sys
 e=json.load(open(sys.argv[1])).get("endpoints",[])
 print(", ".join(sorted({"%s (%s)" % (x.get("transport","?"), x.get("state","?")) for x in e})) or "no herdr endpoint observed")' "$RUN_DIR/herdr-doctor.json")"
 echo "herdr transport (fixture daemon, atm doctor): $HERDR_TRANSPORT"
+HERDR_OK="$(python3 -c 'import json,sys
+e=json.load(open(sys.argv[1])).get("endpoints",[])
+print("yes" if e and all((x.get("state") or {}).get("kind")=="ok" for x in e) else "no")' "$RUN_DIR/herdr-doctor.json")"
+echo "herdr doctor state ok on every endpoint: $HERDR_OK"
 
 # ── 4. seven sentences, seven reports ───────────────────────────────────────────────────────────
 # t: the Claude Code tester (tester@testbed) is nudged over ATM as stub-alpha.
@@ -155,9 +159,9 @@ for block in sys.stdin.read().split("ATM TEST REPORT")[1:]:
         slots[(skill.group(1),agent.group(1))]=result.group(1)
 print(len(slots), sum(1 for v in slots.values() if v=="PASS"))')"
 FILLED=${SLOTS% *}; PASSED=${SLOTS#* }
-if [ "$FILLED" -eq 7 ] && [ "$PASSED" -eq 7 ]; then VERDICT=PASS; else VERDICT=FAIL; fi
+if [ "$FILLED" -eq 7 ] && [ "$PASSED" -eq 7 ] && [ "$HERDR_OK" = yes ]; then VERDICT=PASS; else VERDICT=FAIL; fi   # a red herdr doctor state fails the run (atm-hermes-testbed #8)
 {
-  echo "$VERDICT  skills reported $FILLED/7, PASS $PASSED/7 ($REPORTS report messages)"
+  echo "$VERDICT  skills reported $FILLED/7, PASS $PASSED/7 ($REPORTS report messages); herdr doctor ok: $HERDR_OK"
   echo "atm:    $V ($TAG @ $(echo "$SHA" | cut -c1-9), prerelease-archive run $PRE, ci run $CI)"
   echo "hermes: randlee/hermes-agent @ $(echo "$HERMES_SHA" | cut -c1-9)"
   echo "$VERSIONS"

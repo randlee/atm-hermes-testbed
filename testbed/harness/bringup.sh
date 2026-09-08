@@ -45,7 +45,7 @@ chmod 711 /root/.config /root/.config/herdr; chmod 666 /root/.config/herdr/herdr
 # 4 (add-member creates the team on first use; existing members are left alone)
 atm teams add-member "$TEAM" stub-alpha --agent-type lead   --home-dir /opt/testbed >/dev/null 2>&1 || true   # a lead: no ATM_ROSTER_NO_LEAD warning to chase
 atm teams add-member "$TEAM" stub-beta  --agent-type stub   --home-dir /opt/testbed >/dev/null 2>&1 || true
-atm teams add-member "$TEAM" tester     --agent-type claude --home-dir /opt/testbed --backend herdr >/dev/null 2>&1 || true
+atm teams add-member "$TEAM" tester     --agent-type claude --home-dir /opt/testbed --backend herdr --session default >/dev/null 2>&1 || true   # explicit "default" session: the roster shape that broke nudging on rand-m4 (atm-core #1342); null-session shape is covered by hermes-atm hosts
 atm teams add-member "$TEAM" hermes     --agent-type hermes --home-dir /opt/data >/dev/null 2>&1 || true
 atm teams add-member "$TEAM" oversight  --agent-type stub   --home-dir /opt/testbed >/dev/null 2>&1 || true   # test.sh reads the reports as this identity
 # 5 (hermes agents launch from their profile: user hermes, HERMES_HOME=HOME=cwd=/opt/data)
