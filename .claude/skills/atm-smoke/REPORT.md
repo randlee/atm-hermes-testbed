@@ -46,6 +46,9 @@ in those goes to the requester as-is.
 Rules: an `atm` command runs in your terminal/shell tool where `ATM_IDENTITY`/`ATM_TEAM` are set — never as
 a subprocess inside a code-execution tool (no identity there: every call fails and a poll loop runs to its
 deadline for nothing). Poll by calling the tool (native `atm_list()` or the CLI) once per iteration and
-sleep 10 s in the terminal between calls; never write a loop that shells out to `atm`. The `atm:` line
+sleep 10 s in the terminal between calls; never write a loop that shells out to `atm`, never a heredoc
+parser (`python3 <<EOF` replaces the piped JSON as stdin: run 4 on 2026-09-08 timed out two steps that
+way while the replies sat unread). Every wait step names one fixed `atm list ... --from ... --contains ...`
+command; its `count` is the observable, nothing is parsed. The `atm:` line
 comes from `atm doctor --json`, never guessed. Never include message bodies, addresses beyond `agent@team`, chat ids, tokens,
 capability values or raw config. A FAIL line carries the error code or count, not narrative.

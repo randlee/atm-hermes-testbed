@@ -38,11 +38,12 @@ S. **Start line.** Send ONE line `ATM TEST START skill: atm-smoke fixture: <fixt
 1. **Send.** One line `atm-smoke <run-id> from <you>` to the partner, ack required (CLI
    `--requires-ack`; native `requires_ack=True`). Observable: message id A; FAIL with the code on any
    error (`MAY_HAVE_EXECUTED` is a FAIL).
-2. **Partner's message arrives.** Every 10 s for up to 300 s run exactly `atm list --pending-ack --json`
-   (a wait line to the requester every 60 s, see `REPORT.md`)
-   (native: `atm_list()`) and look in `rows[]` for `from` == the partner's bare name (`tester`, never
-   `tester@testbed`), `summary` starting `atm-smoke`, `read` false; note its `message_id` B. Parse the
-   JSON with python3 (`jq` is not installed on every fixture). It may already be there before your own send: check first.
+2. **Partner's message arrives.** Every 10 s for up to 300 s run exactly
+   `atm list --pending-ack --from <partner bare name> --contains atm-smoke --json` (bare name: `tester`,
+   never `tester@testbed`; native: `atm_list()` with the same filters) and read its `count`: 0 means not
+   yet, 1 means the single row is B (note its `message_id`; `read` is false). A wait line to the requester
+   every 60 s (`REPORT.md`). Never filter `rows[]` yourself and never parse the JSON in a script: the
+   command is the filter. It may already be there before your own send: check first.
    Observable: seconds, id B, `read`. Nothing else finds it: `--unread` never lists an ack-required
    row, and a filter of your own invention is a FAIL of this step, not of the partner. The partner is
    a different agent on its own clock and may start minutes after you; poll until the full deadline
@@ -55,8 +56,9 @@ S. **Start line.** Send ONE line `ATM TEST START skill: atm-smoke fixture: <fixt
 6. **Stale-connection probe.** Do nothing for 5 s, then list. Observable: exit or error code; FAIL on
    `MAY_HAVE_EXECUTED`, `RequestWrite`, or a connection error.
 7. **Ack.** Ack B with reply `atm-smoke ack <run-id>`. Observable: exit or error code.
-8. **Your message got acked.** Within 300 s the partner's ack reply (from the partner, containing
-   `atm-smoke ack <run-id>`) appears in your unread list; read it. Observable: seconds, or timeout.
+8. **Your message got acked.** Every 10 s for up to 300 s run exactly
+   `atm list --unread --from <partner bare name> --contains "atm-smoke ack <run-id>" --json`; `count` 1
+   means the partner's ack reply arrived: read it by id. Observable: seconds, or timeout.
    (`atm list --pending-ack` shows what *you* still owe, so it is not the observable here.)
 
 ## Report

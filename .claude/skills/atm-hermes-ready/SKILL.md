@@ -22,8 +22,9 @@ below is the team of those agents (on the testbed fixture it is `testbed`, not `
 3. **Ping.** Send each expected agent one line, `--requires-ack`, asking for an ack with the reply
    "ready". Observable: message id per agent.
 4. **Pong.** Poll for 120 s from the ping (a real ack arrives in under 60 s; a wait line to the requester at
-   60 s): every 10 s run exactly `atm list --unread --json` and read
-   any row whose `from` is an expected agent's bare name (`hermes`, never `hermes@testbed`). Observable:
+   60 s): every 10 s run exactly `atm list --unread --from <agent bare name> --contains ready --json`
+   (bare name: `hermes`, never `hermes@testbed`) and read its `count`; 1 is the pong. Never filter
+   `rows[]` yourself and never parse the JSON in a script: the command is the filter. Observable:
    seconds per agent, or timeout. Never conclude before the deadline: a reply that has not arrived at
    30 s or 90 s is not a result. When the 120 s pass without a reply the step is FAIL for that agent,
    cause `no ack within 120 s`; on a fixture whose gateway has no nudge adapter (atm-core #1307) that

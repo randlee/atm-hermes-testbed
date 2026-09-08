@@ -18,10 +18,11 @@ Two roles, one skill. The request says which role you are.
 1. **Send.** `atm send <hermes agent> --requires-ack --stdin <<'EOF'` with the single line
    `atm-nudge-roundtrip <run-id>: ack this message with reply "roundtrip <run-id>"` where run-id is
    the current unix time. Observable: message id, exit code.
-2. **Ack arrives.** Poll `atm list --unread --json` every 10 s for up to 300 s (the partner is an agent
-   that must read and ack; a wait line to the requester every 60 s) until a row whose `from` is the
-   agent's bare name (`hermes`, never `hermes@testbed`) and whose summary contains `roundtrip <run-id>`
-   appears; read it. Observable: seconds, or timeout. Never conclude before the deadline. Timeout is
+2. **Ack arrives.** Every 10 s for up to 300 s run exactly
+   `atm list --unread --from <agent bare name> --contains "roundtrip <run-id>" --json` (bare name:
+   `hermes`, never `hermes@testbed`; the partner is an agent that must read and ack; a wait line to the
+   requester every 60 s) until its `count` is 1; read that row by id. Never filter `rows[]` yourself and
+   never parse the JSON in a script: the command is the filter. Observable: seconds, or timeout. Never conclude before the deadline. Timeout is
    FAIL, cause `no ack within 300 s`. (There is no step for "my message is no longer pending":
    `atm list --pending-ack` shows only messages *you* must ack, never the state of a message you sent.)
 
