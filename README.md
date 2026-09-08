@@ -6,6 +6,33 @@ Isolated container testbed for the hermes-agent fork + ATM, and the backbone for
 Phase AR release validation (atm pre-release dispatches). Migrated 2026-08-29
 from `hendrix/hendrix/loki/docker-testbed` (full history preserved there).
 
+## What this is (Rand, 2026-09-08)
+
+One script installs everything in colima and starts it, no arguments, working the first time:
+
+```sh
+./test.sh        # needs env/allowlist.env with ANTHROPIC_API_KEY (see env/allowlist.env.example); prints PASS or FAIL
+```
+
+1. **Hermes**: the most recent fork build, `randlee/hermes-agent` = latest upstream Hermes release + the ATM patch.
+   `build.sh` clones the fork from its URL into `.cache/` at `HERMES_REF` (default `main`) and stamps the SHA into
+   the image (`/opt/hermes/.hermes_build_sha`); the verdict prints it.
+2. **herdr**: `brew install herdr` (homebrew-core, 0.8.2). Inside the Linux container homebrew-core has no
+   herdr bottle (only `arm64_tahoe`), so `install.sh` takes the same 0.8.2 binary from the GitHub release,
+   sha256-checked; on a Mac the brew command is the install.
+3. **ATM**: the latest `prerelease/vX.Y.Z` tag of `randlee/atm-core`: CI tarball for the daemon and CLI, CI wheels for `hermes_atm` and `atm_graft`, then `hermes_atm install`.
+   (When the pre-release Homebrew tap exists, atm-core #1321, this becomes `brew install randlee/tap/atm-prerelease`.)
+
+Then the ATM daemon and the Hermes gateway are up, and the integration test is the five `atm-*` skills
+in `.claude/skills/` run by one sentence each. `test.sh` sends the seven sentences, collects the seven
+reports as `oversight@testbed` inside the fixture (no host daemon, no peer link, nothing on the Mac is
+touched) and prints the verdict with the ATM tag, the Hermes SHA and the herdr version. Reports and logs
+land in `.cache/results/<UTC>/`. `SMOKE-TEST-RUNBOOK.md` is the same run done by hand, step by step. Everything below this
+line is the current machinery; where it disagrees with these three lines, these three lines win.
+
+Definition of done: a fresh agent given only this repository runs the one command to a PASS or FAIL
+without help. Until that has happened, nothing here is done.
+
 ## Goal
 
 Run the hermes-agent fork (`randlee/hermes-agent`, branch `main`) inside a Docker

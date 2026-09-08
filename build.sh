@@ -7,15 +7,19 @@
 set -eu
 
 HERE="$(cd "$(dirname "$0")" && pwd)"
-FORK=~/Documents/github/hermes-agent-randlee
-FORK_WT=~/Documents/github/hermes-agent-randlee-worktrees/testbed-build
+# Hermes fork: nothing on local disk is referenced. The fork is cloned from its URL into
+# .cache/ (gitignored) and built at HERMES_REF (default main = latest upstream release + ATM patch).
+FORK_URL=https://github.com/randlee/hermes-agent.git
+HERMES_REF="${HERMES_REF:-main}"
+FORK_WT="$HERE/.cache/hermes-agent"
 # (wheelhouse retired 2026-09-04 — wheels via WHEELS_DIR only)
 
 # ── Platform switch (AR: #1097 ships a native aarch64 tarball from 1.4.6 on) ──
-# TESTBED_PLATFORM=amd64 (default; qemu emulation on Apple Silicon)
+# TESTBED_PLATFORM defaults to the host arch (arm64 on Apple Silicon, amd64 on Intel);
 # TESTBED_PLATFORM=arm64 (native arm64; requires the aarch64 atm tarball —
 #   provided by the prerelease dispatch via ATM_TARBALL)
-TESTBED_PLATFORM="${TESTBED_PLATFORM:-amd64}"
+# Default = host architecture (Apple Silicon -> arm64, Intel -> amd64); override only for a cross-arch run.
+TESTBED_PLATFORM="${TESTBED_PLATFORM:-$(if [ "$(uname -m)" = arm64 ] || [ "$(uname -m)" = aarch64 ]; then echo arm64; else echo amd64; fi)}"
 case "$TESTBED_PLATFORM" in
   amd64) ATM_ARCH=x86_64; GRAFT_WHL_ARCH=manylinux_2_17_x86_64; DOCKER_PLAT=linux/amd64 ;;
   arm64) ATM_ARCH=aarch64; GRAFT_WHL_ARCH=manylinux_2_17_aarch64; DOCKER_PLAT=linux/arm64 ;;
@@ -109,22 +113,20 @@ fetch_assets() {
 
 build_base() {
   echo "== building loki/hermes-testbed:base (fork image, --extra matrix dropped) =="
-  # NEVER build from the primary checkout — it may be stale. Build from a
-  # detached worktree freshly reset to origin/main (seam lives on main).
-  cd "$FORK"
-  git fetch origin main
-  if ! git worktree list | grep -q testbed-build; then
-    git worktree add --detach "$FORK_WT" origin/main
-  fi
-  git -C "$FORK_WT" checkout --detach origin/main
-  FORK_SHA=$(git -C "$FORK_WT" rev-parse HEAD)
-  echo "base context: $(git -C "$FORK_WT" log --oneline -1)"
+  # Build from a fresh clone of the fork URL at HERMES_REF; never from anyone's checkout.
+  mkdir -p "$HERE/.cache"
+  if [ ! -d "$FORK_WT/.git" ]; then git clone --quiet "$FORK_URL" "$FORK_WT"; fi
+  git -C "$FORK_WT" fetch --quiet origin "$HERMES_REF"
+  git -C "$FORK_WT" checkout --quiet --detach FETCH_HEAD
+  HERMES_SHA="$(git -C "$FORK_WT" rev-parse HEAD)"
+  echo "$HERMES_SHA" > "$HERE/.cache/hermes-sha"
+  echo "base context: $HERMES_REF = $(git -C "$FORK_WT" log --oneline -1)"
   grep -c "inject_internal_message" "$FORK_WT/gateway/run.py" >/dev/null || \
-    { echo "FATAL: seam missing in build context"; exit 1; }
+    { echo "FATAL: ATM patch (inject_internal_message) missing at $HERMES_REF"; exit 1; }
   DOCKER_BUILDKIT=1 docker buildx build --platform "$DOCKER_PLAT" --load \
-    --build-arg HERMES_GIT_SHA="$FORK_SHA" \
+    --build-arg HERMES_GIT_SHA="$HERMES_SHA" \
     -t loki/hermes-testbed:base -f "$HERE/Dockerfile.base" "$FORK_WT"
-  echo "== base build done: fork SHA $FORK_SHA stamped at /opt/hermes/.hermes_build_sha =="
+  echo "== base build done: fork SHA $HERMES_SHA stamped at /opt/hermes/.hermes_build_sha =="
 }
 
 build_testbed() {
@@ -154,6 +156,7 @@ build_testbed() {
   echo "testbed artifacts: $ATM_TARBALL_NAME / $HERMES_ATM_NAME / $ATM_GRAFT_NAME"
   DOCKER_BUILDKIT=1 docker buildx build --platform "$DOCKER_PLAT" --load \
     --build-arg ATM_TARBALL="$ATM_TARBALL_NAME" \
+    --build-arg HERDR_BIN="$HERDR_ARCHIVE" \
     --build-arg HERMES_ATM_WHEEL="$HERMES_ATM_NAME" \
     --build-arg ATM_GRAFT_WHEEL="$ATM_GRAFT_NAME" \
     -t loki/hermes-testbed:testbed .

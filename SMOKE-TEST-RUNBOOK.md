@@ -1,252 +1,167 @@
-# Complete smoke-test runbook — atm-hermes-testbed
+# Runbook — one integration run of ATM `<V>` against the Hermes fork
 
-The single repeatable process for validating an ATM release dispatch against the
-hermes-agent fork, end to end, in full isolation. Every step is idempotent and
-safe to re-run. Owner: loki. Mandated by Rand 2026-08-31 (green light: run until
-everything is green; document the complete process).
+Every command below is exact. Nothing is decided, edited or babysat during a run. Total: ~30 minutes
+including the image build (10–20 minutes, once per input change), ~10 minutes after. Plan and rules:
+atm-core `docs/plans/hermes-integration-tests/sprint-HERMES-SKILL-TESTS-R1.md`. If a line here is wrong, the run stops,
+the line gets fixed in this file (or the script it calls) and committed, and the run restarts. That is
+the only "ceremony": the next run must not hit the same thing twice.
 
-## Prerequisites
+## Inputs (set once per run)
 
-- colima/Docker up (`docker info`); this host is arm64 → use `TESTBED_PLATFORM=arm64`.
-- The release drop's artifacts on disk (team-lead provenance bundle):
-  - `ATM_TARBALL` → `atm_<ver>_<triple>.tar.gz`
-  - `WHEELS_DIR` → unzipped `hermes-atm-wheels-linux-<triple>` artifact dir
-- Verify the tarball sha256 against the bundle BEFORE building:
-  `shasum -a 256 $ATM_TARBALL`
-- `env/allowlist.env` exists with `ANTHROPIC_API_KEY` (+ `ANTHROPIC_WORKSPACE_ID`
-  if the key is workspace-scoped). Values NEVER appear in commits, logs, reports,
-  or summaries. The file must be untracked (run.sh hard-fails otherwise).
-- Cross-team ATM sends use: `ATM_IDENTITY=loki ATM_TEAM=hermes atm send fenix --team atm-dev "..."`
-  (wrong team env bleeds → bogus `loki@atm-dev` sender stamp).
+```sh
+V=1.5.7                                   # ATM version under test; patch-bumped on develop and tagged prerelease/v$V
+SHA=$(git -C ~/Documents/github/atm-core rev-parse "prerelease/v$V^{commit}")   # the tagged COMMIT (the tag is an annotated object; without ^{commit} the CI lookup finds nothing)
+M=$(hostname -s)                          # this Mac, as the container sees it (peer host name)
+O=fenix@atm-dev.$M                        # oversight agent: where every report goes (the .host suffix is what crosses hosts)
+F=atm-hermes-testbed.local                # fixture name = the container's peer host name
+R="stub-alpha@testbed stub-beta@testbed tester@testbed hermes@testbed"   # the fixture's roster (bringup.sh creates exactly this)
+# TESTBED_PLATFORM is not needed: build.sh and run.sh default to the host architecture.
+# Per-host secrets: env/allowlist.env (must carry ANTHROPIC_API_KEY) and env/peer-key live only in the
+# checkout (gitignored, never committed). A fresh clone or worktree needs them copied from the existing checkout.
+```
 
-## Step 0 — build the images
+Where each component comes from (no local builds, ever):
+
+| component | source | pin |
+| --- | --- | --- |
+| ATM daemon + CLI | `prerelease-archive.yml` run for tag `prerelease/v$V`, artifact `aarch64-unknown-linux-gnu` | the tag |
+| hermes_atm + atm_graft wheels | `ci.yml` run for commit `$SHA`, artifact `hermes-atm-wheels-linux-aarch64` | the tag's commit |
+| herdr | GitHub release `herdrdev/herdr` `v0.8.2`, sha256-checked in `build.sh` (same version as the host) | `build.sh` |
+| hermes-agent | fork `randlee/hermes-agent` `origin/main` head at build time (loki): `build.sh base` fetches origin/main, resets the detached worktree `hermes-agent-randlee-worktrees/testbed-build` to that SHA, fails closed if `inject_internal_message` is missing from `gateway/run.py`, builds `loki/hermes-testbed:base`. The citable pin is the SHA the build prints as `base context: <sha> <subject>` (in-image stamp `/opt/hermes/.hermes_build_sha` pending loki's HERMES_GIT_SHA PR) | `./build.sh base` |
+
+## 0. One-time on a new Mac
+
+Nothing today. When atm-core #1309 lands (daemon dials the trust entry's port), host → container sends
+over the peer link additionally need `echo "127.0.0.1 atm-hermes-testbed.local" | sudo tee -a /etc/hosts`
+(sudo; Rand). `run.sh` prints a note when the line is missing and continues.
+
+## 1. Clean
 
 ```sh
 cd ~/Documents/github/atm-hermes-testbed
-TESTBED_PLATFORM=arm64 ATM_TARBALL=<bundle tarball> \
-  WHEELS_DIR=<unzipped wheels dir> ./build.sh all
+./teardown.sh
+git fetch origin && git reset --hard origin/main && git clean -fdx -e env/
 ```
 
-- Layout-tolerant: 1.4.6+ tarballs nest under a top-level dir; the Dockerfile
-  handles both layouts.
-- Checksums land in `assets/asset-provenance.txt` (committed with results).
-
-## Step 1 — boot the isolated container
+## 2. Fetch the ATM artifacts
 
 ```sh
-TESTBED_PLATFORM=arm64 ./run.sh            # standard isolated run
-TESTBED_PLATFORM=arm64 ./run.sh --peer rand-m5.local   # cross-host mode (Step 6)
+PRE=$(gh run list -R randlee/atm-core --workflow prerelease-archive.yml --branch prerelease/v$V --json databaseId --jq '.[0].databaseId')
+gh run download $PRE -R randlee/atm-core -n aarch64-unknown-linux-gnu -D /tmp/atm-$V
+CI=$(gh run list -R randlee/atm-core --workflow ci.yml --json databaseId,headSha --jq ".[]|select(.headSha==\"$SHA\")|.databaseId" | head -1)
+gh run download $CI -R randlee/atm-core -n hermes-atm-wheels-linux-aarch64 -D /tmp/wheels-$V
 ```
 
-- `run.sh` runs `harness/setup-mtls.sh` automatically (ATM ≥1.4.4 daemons refuse
-  to start without mTLS: one enabled peer interface + local certificate).
-- Walls: own `HERMES_HOME=/opt/data/.hermes`, own `/root/.atm`, env allowlist only.
-- Verify daemon up inside: `docker exec hermes-testbed atm doctor` → DAEMON-UP.
-
-## Step 2 — infra matrix (Tier A–D + D7)
-
-**suite/v2 (five-fix bundle): run via the host coordinator, NOT a bare
-`docker exec`** — the coordinator supplies the self-carried provenance envs
-that `result.py` now REQUIRES (it refuses to write a tier JSON with any
-empty/unknown provenance field), fail-closes on an image-digest mismatch,
-and cross-checks `results-run-v153/asset-provenance.txt`:
+## 3. Build the image
 
 ```sh
-# v1.5.3 run needs no args — defaults derive from asset-provenance.txt +
-# the base-image build worktree. Override any via env.
-./run-tiers.sh results-run-v153
+ATM_TARBALL=/tmp/atm-$V/atm_${V}_aarch64-unknown-linux-gnu.tar.gz WHEELS_DIR=/tmp/wheels-$V ./build.sh all
 ```
 
-- Emits `/opt/testbed/results/tier-{a,b,c,d}.json` (schema v1) + copies them
-  to the outdir, plus a sanitized `doctor-post-run.json` (status + code
-  counts only, never finding messages).
-- Each tier main begins from `doctor_ok_gate()` (FATAL on error findings or
-  any warning code outside the expected fixture set `ATM_ROSTER_NO_LEAD`)
-  and ends with `teardown_fixture_teams()` AFTER evidence is emitted
-  (identity-scoped `remove-member`; residue reported, not ignored).
-- Expected on a green release: A 8/8, B 6/6, C 6/6, D 7/7 (D7 included).
-- D7 asserts the routing CONTRACT with a **correlated fresh-event proof**
-  (five-fix item 2): pre-send snapshot of the daemon-log byte offset +
-  `outcome=sent` count; post-send requires a NEW `action=send outcome=sent`
-  entry past the cursor (bounded 5s) AND a count increase; the D7 row detail
-  records cursor offset, pre/post counts, fresh-entry timestamp, and the
-  product-API message_id. A whole-log `grep -c` is NOT accepted (it counts
-  historical events). backendType=herdr persistence + no
-  `ATM_HERDR_UNAVAILABLE` still asserted; not pane-text capture.
-- D7 pitfall: register members WITHOUT `--session`; the default herdr socket is
-  the contract. Per-session sockets require matching `HERDR_SESSION` paths.
-- Evidence-integrity gate envs (set by run-tiers.sh): `TESTBED_IMAGE_ID`
-  (pinned digest), `ATM_CORE_SHA`, `CI_RUN_ID` (the WHEELS run, headSha ==
-  tag sha), `HERMES_FORK_SHA`.
+`build.sh base` rebuilds only when the fork changed; `testbed` is the thin layer with ATM, herdr, hmux,
+the harness scripts, the test config (`testbed/atm.toml` → `/opt/testbed/.atm.toml`) and the five skills,
+placed three times so every kind of agent finds them without copying anything at run time:
 
-## Step 3 — prompt suite (E0 + AT0–AT8, real Anthropic key)
+| agent | reads skills from | put there by |
+| --- | --- | --- |
+| Hermes (profile `default`, `HERMES_HOME=/opt/data`) | `/opt/data/skills/atm-*` | boot hook syncs `/opt/hermes/skills` |
+| Claude Code tester (cwd `/opt/testbed`) | `/opt/testbed/.claude/skills/atm-*` | Dockerfile COPY |
+| Codex tester (cwd `/opt/testbed`) | `/opt/testbed/.codex/skills/atm-*` + `AGENTS.md` | Dockerfile symlinks |
+
+## 4. Start: one command brings up both teams as cross-host peers
 
 ```sh
-docker exec hermes-testbed /opt/testbed/harness/run-prompts.sh E0
-docker exec hermes-testbed /opt/testbed/harness/run-prompts.sh AT0   # … AT1..AT8
+./run.sh --gateway
 ```
 
-- Requires `ANTHROPIC_API_KEY` in the allowlist (harness SKIPs otherwise).
-- Each run writes a `prompt-report-1` JSON to `/opt/testbed/results/`;
-  the harness echoes PASS/FAIL/SKIP.
-- Harness invariants (do not regress):
-  - **NO-SUDO model (solar P0 ruling 2026-09-07, implemented at main 41fc546):**
-    the image contains no `sudo` package and no sudoers entries; the daemon
-    lifecycle hooks refuse to run as non-root. The outer coordinator invokes
-    them OUT OF BAND via root-default
-    `docker exec hermes-testbed /opt/testbed/harness/<hook>`; the unprivileged
-    fixture agent never execs a hook — it coordinates through marker files
-    under `/opt/testbed/results/markers/` (chowned to the agent).
-    Expected-marker table (writer → reader → content → lifecycle):
+What it does, in order (all rerunnable; `run.sh` prints one line per step):
 
-    | marker | writer | reader | content | lifecycle |
-    |--------|--------|--------|---------|-----------|
-    | `at4-ready` | fixture agent | coordinator (`restart-daemon.sh`) | touch only | cleared at suite start + hook arm |
-    | `at4-done` | coordinator hook | fixture agent (poll) | UTC ISO ts | written post-restart |
-    | `at8-rtt` | fixture agent (AT8 step 2) | coordinator (`at8-calibrate.sh`) | ASCII integer RTT ms + newline ONLY | cleared at suite start; HGC-023 |
-    | `at8-armed` | coordinator hook | fixture agent (poll) | UTC ts + `after_ms=<n>` + `source_rtt_ms=<n>` | cleared at hook arm |
-    | `at8-trigger` | fixture agent (step 10, &&-chained before send) | coordinator hook | touch only | cleared at suite start + hook arm |
-    | `at8-done` | coordinator hook | fixture agent (poll) | UTC ISO ts | written post-SIGCONT |
+1. `docker run` in peer mode: host port 43102 → container 43101, sshd on 2222, `--add-host $M:host-gateway`.
+2. `setup-mtls.sh`: the container's peer identity (baked at image build; its fingerprint changes per build).
+3. `setup-peer.sh`: the container trusts `$M` (add, or replace if present).
+4. The host trusts `$F:43102` (add or replace), then **restarts the host daemon** via `launchctl kickstart -k`.
+   The trust store is snapshotted at daemon start (`crates/peer-tls`): without the restart every cross-host
+   send fails with "peer is not an enabled exact mTLS authority" or a bare "connection error".
+5. `bringup.sh` inside the container: ATM daemon (started *after* trust, same snapshot rule) → perms and the
+   `/opt/data/.atm` symlink so the hermes user reaches the root-run daemon → `herdr server` with a
+   world-writable socket → roster `$R` (`tester` on the herdr backend) → `hermes_atm install` for profile
+   `default` as user hermes from `/opt/data` + `hermes plugins enable hermes-atm-native-tools` + receiver dir
+   `/opt/testbed/.atm` owned by hermes → gateway restart (s6) → `herdr integration install claude` for the
+   hermes user → `hmux` from `/opt/testbed` (stub-alpha, stub-beta, tester panes; leftover panes are closed
+   first because hmux is not idempotent) → `herdr agent rename <pane> tester` (Claude Code registers nameless;
+   ATM's herdr backend matches the roster name).
 
-    - AT4: agent `touch markers/at4-ready` → hook restarts daemon →
-      `markers/at4-done` (UTC ISO content); agent polls, then post-restart sends.
-    - AT8 branch (b), HGC-023 calibrated flow (fenix 01M1WXW9R9Z7KH69CDVR4F6122):
-      agent measures warmup RTT (step 2) and writes the sanitized integer to
-      `markers/at8-rtt`; coordinator runs `harness/at8-calibrate.sh` (bounded
-      wait ≤120s, validates `^[0-9]+$` range 1..60000, computes
-      `after_ms=clamp((rtt+1)/2, 300, 1500)`; missing/invalid = FAIL
-      "calibration marker missing/invalid", never default/tune/retry), then
-      Phase A `freeze-daemon.sh 4`, then Phase B `freeze-daemon.sh 4
-      --after <after_ms> --source-rtt <rtt> --trigger markers/at8-trigger`.
-      The hook fail-closes on invalid args (after requires source-rtt;
-      after ∈ 300..1500; rtt ∈ 1..60000) BEFORE any signal. Agent touches
-      the trigger &&-chained immediately before its send, so the calibrated
-      delay starts at agent-owned trigger time (persist-then-freeze, reply
-      past the 3.25s budget). Deterministic helper tests:
-      `harness/test-at8-calibrate.sh` (host-runnable; 19 cases).
-    - Coordinator clears stale markers (`at4-ready`, `at8-rtt`,
-      `at8-trigger`) before a run (run-prompts.sh AT8 case does this);
-      hooks also clear their own at arm time.
-    - AT4/AT8 prompt text is UPDATED to this protocol (fenix sign-off +
-      HGC-023 draft 01M1WXZXVH1A178ARNNQE3NX72 applied 2026-09-07).
-  - daemon kills use exact `pkill -x atm-daemon` (never `-f` — the agent's own
-    argv contains the prompt text and `-f` self-killed AT4);
-  - `restart-daemon.sh` deletes stale `local-http.json` BEFORE relaunch and
-    re-opens the republished record to readable perms AFTER (daemon writes 0600).
-- AT4 is the regression probe for randlee/atm-core#1095; AT8 proves the retry
-  decision rule (must behave identically across versions — a difference is a
-  finding, not a pass).
-
-## Step 4 — collect evidence
+Hermes agents launch from their profile: user `hermes`, `HERMES_HOME=HOME=/opt/data`, cwd `/opt/data`.
+The gateway does. Verify (30 seconds):
 
 ```sh
-mkdir -p results-run-v<ver>
-docker cp hermes-testbed:/opt/testbed/results/. results-run-v<ver>/
-git add results-run-v<ver> assets/asset-provenance.txt && git commit && git push
+atm doctor --json | jq .summary
+docker exec hermes-testbed atm doctor --json | jq .summary
+docker exec hermes-testbed herdr agent list | jq '[.result.agents[]|{name,agent_status}]'     # tester idle
+docker exec hermes-testbed pgrep -af "[h]ermes gateway run"                                  # gateway up as hermes
+docker exec -i -e ATM_IDENTITY=stub-alpha -e ATM_TEAM=testbed hermes-testbed atm send tester --requires-ack --stdin <<<"ack this message"
 ```
 
-## Step 5 — final report (Rand directive 2026-08-31)
+The last line proves the nudge path into the tester (`docker exec -i`: without `-i` the heredoc never
+reaches `--stdin`). Sentences go *into* the fixture this way, not over the peer link: the daemon dials
+every peer on the fixed port 43101 and ignores the trust entry's `https_port` (atm-core #1309), and on
+one machine 43101 belongs to the host daemon. Reports come *out* over the peer link (container → host
+works, verified). When #1309 lands, `t()` becomes `atm send tester@testbed.$F ...` from the host.
 
-Durable readiness record (atm-core side, solar@atm-dev):
-`docs/runbooks/hermes-graft-colima-integration.md` — atm-core draft PR
-[#1276](https://github.com/randlee/atm-core/pull/1276) (commit 0db13f3b0).
-It cites THIS runbook + testbed main as the authoritative implementation and
-leaves mutable operating commands here; cite the PR/doc path back in cycle
-reports from the v1.5.3 run on (one source of truth each side).
+## 5. The run-book (seven sentences, seven reports)
 
-Assemble the full cycle report into **atm-core `reports/colima/`** (fenix
-correction 2026-08-31: there is no `sites/reports/` — repo-root
-`reports/<family>/` is the convention, `site/reports/` is published-HTML only),
-following the smoke pattern:
-- paired `<timestamp>-colima-v<ver>.md` + `.json`;
-- md header: `status`, `timestamp`, binary/tag SHA, `duration`, summary
-  (`pass=N fail=N skip=N`) + the row-semantics note;
-- verdict table: `| Row | Flow | Verdict | Notes |` with stable row ids
-  `AS-COLIMA-<TIER|PROMPT>-nnn` (e.g. `AS-COLIMA-AT4-001`);
-- provenance block: tag + atm_core_sha, CI run ids, image digest, per-file sha256;
-- copied tier/prompt JSONs must be byte-identical to `results-run-v<ver>/`
-  (`cmp` before commit); the `.md` is authored narrative over them;
-- sign-off line: `Validated-by: loki@hermes; Co-signed: fenix@atm-dev (Phase AS owner)`
-  — fenix co-signs after review; send the branch to fenix BEFORE the PR
-  (target `develop`, doc-lint path).
-- **suite citation:** from `suite/v2` on, the provenance block cites the suite
-  tag directly alongside the atm tag (binding: suite tag ↔ atm tag). The
-  suite/v1 cycle is the exception — its report merged sha-pinned before the
-  scheme existed; the AT3 addendum cites `suite/v1`.
-
-## Step 5b — cut the suite tag (loki + fenix@atm-dev, 2026-08-31)
-
-Tests, prompts, and harness scripts are versioned TOGETHER:
+`T` = the Claude Code tester inside the fixture (`tester@testbed`, driven by ATM nudges through herdr).
+`H` = the Hermes gateway agent inside the fixture (`hermes@testbed`), driven by ATM nudges exactly like `T`
+(atm-core #1307 landed in 1.5.8: the hermes-atm receiver injects into the `api_server` platform). Run 3
+(1.5.8, 2026-09-08) proved that a headless `hermes chat` beside the gateway is a second actor under one
+identity: the gateway read and answered the tester's smoke message first, the CLI session timed out on it.
+One identity, one actor; there is no CLI path any more.
 
 ```sh
-# at the END of a validated cycle, once all cycle evidence is committed:
-git tag -a suite/v<N> -m "suite v<N>: <cycle summary, atm tags validated>"
-git push origin suite/v<N>
+t() { docker exec -i -e ATM_IDENTITY=stub-alpha -e ATM_TEAM=testbed hermes-testbed atm send tester --requires-ack --stdin <<<"$1"; }
+h() { docker exec -i -e ATM_IDENTITY=stub-alpha -e ATM_TEAM=testbed hermes-testbed atm send hermes --requires-ack --stdin <<<"$1"; }
 ```
 
-Rules:
-- `suite/v<N>` is decoupled from the atm version — one suite validates many
-  atm drops; the report provenance cites BOTH tags.
-- Tag at cycle END so it covers everything that produced the cycle's evidence.
-- Major bump on report-contract breaks (`prompt-report-1` schema, row-id
-  scheme); minor/patch at owner discretion for additive changes.
-- Every prompt carries `since: <suite-tag>` (frontmatter + CATALOG.md table).
-- `suite/v1` is cut at the head including the AT3 `--peer` leg (the complete
-  v1.4.6 cycle) — NOT retroactively before AT3 lands.
+Send in this order; the two smoke sentences together, the two roundtrip sentences together; otherwise wait
+for the report before the next sentence. Every sentence carries the fixture, the expected roster where the
+skill needs one, and the report address with its `.host` suffix.
 
-## Step 6 — cross-host peer leg (AT3) — optional, needs host coordination
-
-The ONE documented wall exception (AR item 7, accepted by fenix@atm-dev):
-published ports + sshd. Tight scope. **VM-internal architecture per
-COLIMA-VM-INTERNAL-PLAN.md (C1–C5) and Rand's Q1 ruling
-(2026-09-06): the peer authority name is `atm-hermes-testbed.local` —
-NEVER `localhost`** (the host's localhost trust entry pins the host daemon's
-own cert, so a localhost-addressed dial pin-mismatches):
-
-1. Host side (reversible, fenix's daemon): add the container's cert
-   fingerprint to host trust under the NAMED authority:
-   container cert fp = sha256 of `docker exec hermes-testbed cat /root/.atm/peer/local.crt`
-   `atm peer trust add atm-hermes-testbed.local --fingerprint <fp> --https-port 43102`
-   + host `/etc/hosts` maps `atm-hermes-testbed.local` → the colima VM IP.
-2. Start the container with `--peer rand-m5.local`, then inside run
-   `harness/setup-peer.sh` (rebind interface 0.0.0.0:43101, advertise
-   `atm-hermes-testbed.local` — cert CN/SAN regenerated by setup-mtls.sh —
-   trust-add host fp) — or do it by hand; the script is the source of truth.
-3. Register mirrored fixture rosters on BOTH sides (team `fx-at3`, members
-   `fx-at3-alpha` container-side / `fx-at3-beta` host-side; `fx-` prefix
-   mandatory, never reuse real fleet names).
-4. Send both directions; collect + report.
-5. Teardown: **roster removal is identity-scoped** — `atm teams
-   remove-member <team> <member>` rejects cross-team callers ("caller team
-   X does not match remove-member target team Y"). Remove each fixture under
-   ITS OWN identity (`ATM_IDENTITY=fx-at3-beta ATM_TEAM=fx-at3 atm teams
-   remove-member fx-at3 fx-at3-beta`). Verified live on host atm 1.4.13
-   (fx-at3-beta removal, 2026-09-07).
-
-**CRITICAL PITFALL — trust pins are bootstrap-cached.**
-`MtlsPeerStreamAdapter::from_peer_config` builds the pinned verifier ONCE at
-daemon startup (verified at source, no reload path). If you add a trust entry
-to an already-running daemon, it does NOT take effect until that daemon
-restarts. Symptom: TLS handshake completes, connection reset immediately
-after, "could not connect to direct peer". Fix: restart the daemon — the host
-daemon restart belongs to fenix@atm-dev via the `/daemon-switch` skill (Rand
-2026-08-31); fenix must restore afterwards if ATM issues arise.
-
-## Teardown / restore
-
-```sh
-docker stop hermes-testbed && docker rm hermes-testbed
-# host side after a peer run:
-atm peer trust remove localhost
-atm teams delete fx-at3   # fixture roster cleanup (members first if needed)
+```
+t "run the atm-setup-environment skill on fixture $F (expected roster: $R; peer host $M) and send the report to $O"
+h "run the atm-setup-environment skill on fixture $F (expected roster: $R; peer host $M) and send the report to $O"
+t "run the atm-smoke skill against hermes@testbed on fixture $F and send the report to $O"
+h "run the atm-smoke skill against tester@testbed on fixture $F and send the report to $O"
+t "run the atm-hermes-ready skill for hermes@testbed on fixture $F and send the report to $O"
+t "run the atm-nudge-roundtrip skill as tester against hermes@testbed on fixture $F and send the report to $O"
+h "run the atm-nudge-roundtrip skill as responder on fixture $F and send the report to $O"
 ```
 
-Images and results stay; only container state is disposable.
+The same seven sentences, same skills, run on this host against the local team (fixture `$M`, no peer)
+by sending them to a local agent with `atm send <agent> --stdin`; the reports differ only in the `fixture`
+line. Everything arrives in `$O`'s inbox (`atm list --unread --json`, `atm read --message-id <id>`),
+and nobody waits wondering: every skill's first action is one line `ATM TEST START skill: … agent: …`
+(within ~30 s of the sentence), every 60 s of waiting on a deadline one line `ATM TEST WAIT … <elapsed>s/<deadline>s`,
+then the one report. Deadlines are short: 120 s for a gateway pong (hermes-ready), 300 s for anything the
+partner agent must do (its message, its ack); a skill is 1–5 minutes end to end. Rehearsed 2026-09-08 (run 9, `./test.sh`,
+atm 1.5.9, herdr socket transport, testbed layer rebuilt): seven sentences, seven reports, 13 minutes including the build; run 8 (1.5.8, image cached) took 5 minutes. No START within 60 s = the agent did not launch: read it
+(`docker exec hermes-testbed herdr pane read <pane> --source recent --lines 60`, or the gateway log `/opt/data/logs/agent.log`) — a finding for the post-mortem, not a reason to stop the other sentences.
 
-## Known-flake workarounds
+## 6. Post-mortem
 
-- `atm read` selector/filter is unreliable → use `atm list`/`atm peek`/`atm search`
-  or direct sqlite on `~/.atm/db/mail.db` (table `mail_messages`, cols:
-  `team, agent, message_id, from_agent, message_at, message_text`).
-- `atm peer certificate show` prints `null` with exit 0 when absent —
-  idempotency checks must test the VALUE, not the exit code.
+Evidence goes to atm-core `site/reports/` like every other smoke, benchmark and fuzz run, on an `evidence/...`
+branch off the integrate branch under test, by PR into that branch: from the atm-core worktree run
+`python3 scripts/smoke/colima_skill_report.py <run dir>` (the run dir test.sh printed as "reports and logs"). It copies
+the run's files unchanged and renders `colima-hermes-skills.json`, the `hermes-testbed-colima-hermes-skills.xhtml`
+pane, the html frames and the envelope through the sc-compose smoke templates, then refreshes the master index.
+Add a `report.md` beside them for anything the seven reports do not say (versions, findings, runbook lines that
+changed). Then `./teardown.sh`.
+
+## When a line says FAIL
+
+The container is not a black box: `docker exec hermes-testbed atm list --json` as any roster identity,
+`docker exec hermes-testbed atm log snapshot`, `/tmp/atm-daemon.log`, `/tmp/herdr-server.log`,
+`/tmp/hmux.log`, `/tmp/hermes-atm-install.log`, gateway logs under `/opt/data/logs` (redact every run of
+8+ digits and every 32+ hex run before quoting). Root-cause with the `atm-troubleshoot` skill, fix the
+environment, retest the step, record cause / fix / retest in the report. A FAIL inside a report is a
+result, not an emergency; the run continues. Never edit ATM or the skills during a run; edit this file and
+the scripts only between runs.

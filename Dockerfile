@@ -30,7 +30,15 @@ RUN apt-get -o Acquire::Retries=3 update && \
 # (sudoers block removed — hooks refuse non-root; lifecycle is docker-exec-only)
 
 # herdr 0.8.2 — native Rust, musl static, sha256 verified against v0.8.2 release
-COPY --chmod=0755 assets/herdr-linux-x86_64 /usr/local/bin/herdr
+ARG HERDR_BIN=herdr-linux-x86_64
+COPY --chmod=0755 assets/${HERDR_BIN} /usr/local/bin/herdr
+
+# hmux — herdr-native ATM team launcher (vendored from scmux/scripts, verbatim).
+# hmux sys.path-inserts its own dir and imports hmux_core/hmux_backend, so all
+# three files must share /usr/local/bin. Requires python3 >= 3.11 (tomllib).
+COPY --chmod=0755 testbed/hmux/hmux /usr/local/bin/hmux
+COPY --chmod=0644 testbed/hmux/hmux_core.py /usr/local/bin/hmux_core.py
+COPY --chmod=0644 testbed/hmux/hmux_backend.py /usr/local/bin/hmux_backend.py
 
 # atm + atm-daemon from the GitHub Release tarball (the installer path).
 # Filenames parametrized so pre-release drops (ATM_TARBALL env override in
@@ -60,6 +68,20 @@ RUN uv pip install --python /opt/hermes/.venv/bin/python --no-index \
     /opt/hermes/.venv/bin/python -c "import hermes_atm, atm_graft, importlib.metadata as m; print('hermes_atm', m.version('hermes-atm'), '| atm_graft', m.version('atm-graft'), '| seam client module:', hermes_atm.__name__)"
 
 # Test-team config + stub agents (graph test actors)
+# ATM integration test skills (AGENTS.md). The boot hook syncs /opt/hermes/skills
+# into $HERMES_HOME/skills, so the container's Hermes agents carry the same files
+# every other agent runs from .claude/skills.
+COPY .claude/skills/atm-setup-environment /opt/hermes/skills/atm-setup-environment
+COPY .claude/skills/atm-smoke /opt/hermes/skills/atm-smoke
+COPY .claude/skills/atm-hermes-ready /opt/hermes/skills/atm-hermes-ready
+COPY .claude/skills/atm-nudge-roundtrip /opt/hermes/skills/atm-nudge-roundtrip
+COPY .claude/skills/atm-troubleshoot /opt/hermes/skills/atm-troubleshoot
+# The same five skills for the Claude Code / Codex tester agents launched by hmux with
+# cwd /opt/testbed: Claude Code reads <cwd>/.claude/skills, Codex reads <cwd>/.codex/skills + AGENTS.md.
+COPY .claude/skills /opt/testbed/.claude/skills
+COPY AGENTS.md /opt/testbed/AGENTS.md
+COPY CLAUDE.md /opt/testbed/CLAUDE.md
+RUN mkdir -p /opt/testbed/.codex/skills && for s in /opt/testbed/.claude/skills/*; do ln -sfn "../../.claude/skills/$(basename "$s")" "/opt/testbed/.codex/skills/$(basename "$s")"; done
 COPY testbed/atm.toml /opt/testbed/.atm.toml
 COPY --chmod=0755 testbed/stub-agent.sh /opt/testbed/stub-agent.sh
 COPY --chmod=0755 testbed/test-smoke.sh /opt/testbed/test-smoke.sh
@@ -79,7 +101,12 @@ COPY --chmod=0755 testbed/harness/freeze-daemon.sh /opt/testbed/harness/freeze-d
 COPY --chmod=0755 testbed/harness/at8-calibrate.sh /opt/testbed/harness/at8-calibrate.sh
 COPY --chmod=0755 testbed/harness/test-at8-calibrate.sh /opt/testbed/harness/test-at8-calibrate.sh
 COPY --chmod=0755 testbed/harness/install-claude-code.sh /opt/testbed/harness/install-claude-code.sh
+COPY --chmod=0755 testbed/harness/run-tester.sh /opt/testbed/harness/run-tester.sh
+# Claude Code for the hmux tester (herdr agent); bringup.sh only falls back to installing it at run time.
+RUN /opt/testbed/harness/install-claude-code.sh
 COPY --chmod=0755 testbed/harness/setup-mtls.sh /opt/testbed/harness/setup-mtls.sh
+COPY --chmod=0755 testbed/harness/setup-peer.sh /opt/testbed/harness/setup-peer.sh
+COPY --chmod=0755 testbed/harness/bringup.sh /opt/testbed/harness/bringup.sh
 
 # Testbed runtime lives entirely inside the container:
 #  - hermes state under /opt/data (never host-mounted)
