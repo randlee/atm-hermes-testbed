@@ -6,6 +6,18 @@ Isolated container testbed for the hermes-agent fork + ATM, and the backbone for
 Phase AR release validation (atm pre-release dispatches). Migrated 2026-08-29
 from `hendrix/hendrix/loki/docker-testbed` (full history preserved there).
 
+## What this is (Rand, 2026-09-08)
+
+One script installs everything in colima and starts it, no arguments, working the first time:
+
+1. **Hermes**: the most recent fork build, `randlee/hermes-agent` = latest upstream Hermes release + the ATM patch. The installed SHA is recorded.
+2. **herdr**: the latest `herdrdev/herdr` GitHub release, sha256-checked.
+3. **ATM**: the latest `prerelease/vX.Y.Z` tag of `randlee/atm-core`: CI tarball for the daemon and CLI, CI wheels for `hermes_atm` and `atm_graft`, then `hermes_atm install`.
+
+Then the ATM daemon and the Hermes gateway are up, and the integration test is the five `atm-*` skills
+in `.claude/skills/` run by one sentence each (see `SMOKE-TEST-RUNBOOK.md`). Everything below this
+line is the current machinery; where it disagrees with these three lines, these three lines win.
+
 ## Goal
 
 Run the hermes-agent fork (`randlee/hermes-agent`, branch `main`) inside a Docker
