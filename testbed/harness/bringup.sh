@@ -45,7 +45,10 @@ atm teams add-member "$TEAM" tester     --agent-type claude --home-dir /opt/test
 atm teams add-member "$TEAM" hermes     --agent-type hermes --home-dir /opt/data >/dev/null 2>&1 || true
 atm teams add-member "$TEAM" oversight  --agent-type stub   --home-dir /opt/testbed >/dev/null 2>&1 || true   # test.sh reads the reports as this identity
 # 5 (hermes agents launch from their profile: user hermes, HERMES_HOME=HOME=cwd=/opt/data)
-$AS_HERMES sh -c "cd /opt/data && /opt/hermes/.venv/bin/python -m hermes_atm install --profile default --profile-home /opt/data --identity hermes --team $TEAM --chat-id $CHAT_ID --atm-home /root/.atm --workspace-root /opt/testbed" >/tmp/hermes-atm-install.log 2>&1 || echo "bringup: WARN hermes_atm install failed (see /tmp/hermes-atm-install.log)"
+# The fixture gateway is headless (api_server only): nudges must inject there, not into Telegram (atm-core #1307,
+# fixed in hermes-atm >= 1.5.8 by --platform; older installers do not know the flag, so it is added only when supported).
+PLATFORM=""; /opt/hermes/.venv/bin/python -m hermes_atm install --help 2>/dev/null | grep -q -- --platform && PLATFORM="--platform api_server"
+$AS_HERMES sh -c "cd /opt/data && /opt/hermes/.venv/bin/python -m hermes_atm install --profile default --profile-home /opt/data --identity hermes --team $TEAM --chat-id $CHAT_ID --atm-home /root/.atm --workspace-root /opt/testbed $PLATFORM" >/tmp/hermes-atm-install.log 2>&1 || echo "bringup: WARN hermes_atm install failed (see /tmp/hermes-atm-install.log)"
 $AS_HERMES sh -c "cd /opt/data && hermes plugins enable hermes-atm-native-tools" >/dev/null 2>&1 || true
 mkdir -p /opt/testbed/.atm && chown -R hermes /opt/testbed/.atm
 # The gateway is not s6-supervised (main-hermes is `sleep infinity`); start it ourselves, from the
