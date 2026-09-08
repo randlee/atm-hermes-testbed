@@ -19,13 +19,16 @@ below is the team of those agents (on the testbed fixture it is `testbed`, not `
    one entry per expected agent with a `last_seen` newer than 10 minutes. Print only the `agent`
    and `last_seen` fields; never print or copy `endpoint` or `capability`. Observable: agents
    without a receiver entry, stale entries.
-3. **Ping.** Send each expected agent one line, `--requires-ack`, asking for an ack with the reply
-   "ready". Observable: message id per agent.
+3. **Ping.** Take `T=$(date -u +%Y-%m-%dT%H:%M:%SZ)`, then send each expected agent exactly this one
+   line with `--requires-ack --stdin`:
+   `atm-hermes-ready ping <run-id>: ack this message with reply "ready"` (run-id = current unix time).
+   Observable: message id per agent.
 4. **Pong.** Poll for 120 s from the ping (a real ack arrives in under 60 s; a wait line to the requester at
-   60 s): every 10 s run exactly `atm list --unread --from <agent bare name> --contains ready --json`
-   (bare name: `hermes`, never `hermes@testbed`) and read its `count`; 1 is the pong. Never filter
-   `rows[]` yourself and never parse the JSON in a script: the command is the filter. Observable:
-   seconds per agent, or timeout. Never conclude before the deadline: a reply that has not arrived at
+   60 s): every 10 s run exactly `atm list --unread --from <agent bare name> --since "$T" --json`
+   (bare name: `hermes`, never `hermes@testbed`) and read its `count`; 1 or more is the pong: any
+   reply from that agent after the ping counts, whatever its text (record the text, do not judge it;
+   three runs produced three different reply texts). Never filter `rows[]` yourself and never parse
+   the JSON in a script: the command is the filter. Observable: seconds per agent, or timeout. Never conclude before the deadline: a reply that has not arrived at
    30 s or 90 s is not a result. When the 120 s pass without a reply the step is FAIL for that agent,
    cause `no ack within 120 s`; on a fixture whose gateway has no nudge adapter (atm-core #1307) that
    is the expected product finding, still reported as FAIL with that cause.
