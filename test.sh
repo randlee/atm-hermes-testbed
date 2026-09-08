@@ -151,7 +151,11 @@ if [ "$FILLED" -eq 7 ] && [ "$PASSED" -eq 7 ]; then VERDICT=PASS; else VERDICT=F
   echo "atm:    $V ($TAG @ $(echo "$SHA" | cut -c1-9), prerelease-archive run $PRE, ci run $CI)"
   echo "hermes: randlee/hermes-agent @ $(echo "$HERMES_SHA" | cut -c1-9)"
   echo "$VERSIONS"
-  for f in "$RUN_DIR"/report-*.txt; do [ -f "$f" ] && grep -E '^(skill|agent|result):' "$f" | tr '\n' ' ' && echo; done
+  for f in "$RUN_DIR"/report-*.txt; do
+    [ -f "$f" ] || continue
+    grep -E '^(skill|agent|result):' "$f" | tr '\n' ' '; echo
+    grep -E '^ +[0-9]+ FAIL' "$f" | sed 's/^/      /'      # every failed step with its cause line
+  done
   echo "reports and logs: $RUN_DIR"
   echo "the fixture is still running: docker exec $NAME ... ; ./teardown.sh when done"
 } | tee "$RUN_DIR/result.txt"
