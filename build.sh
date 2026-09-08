@@ -126,6 +126,7 @@ build_base() {
   DOCKER_BUILDKIT=1 docker buildx build --platform "$DOCKER_PLAT" --load \
     --build-arg HERMES_GIT_SHA="$HERMES_SHA" \
     -t loki/hermes-testbed:base -f "$HERE/Dockerfile.base" "$FORK_WT"
+  echo "== base build done: fork SHA $HERMES_SHA stamped at /opt/hermes/.hermes_build_sha =="
 }
 
 build_testbed() {
