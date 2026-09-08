@@ -89,9 +89,11 @@ t() { printf '%s\n' "$1" | docker exec -i -e ATM_IDENTITY=stub-alpha -e ATM_TEAM
 h() { printf '%s\n' "$1" | docker exec -i -e ATM_IDENTITY=stub-alpha -e ATM_TEAM=$TEAM "$NAME" atm send hermes --requires-ack --stdin >/dev/null \
         && echo "sent to hermes: ${1%% and send*}" || echo "SEND FAILED to hermes: $1"; }
 
-REPORTS=0
-# wait_for N: poll the oversight inbox until N reports have arrived in total (or the deadline passes),
-# printing every START/WAIT line as it arrives and saving every report. Never stops the run.
+REPORTS=0; SLOTS_SEEN=""; DISTINCT=0
+# wait_for N: poll the oversight inbox until N distinct (skill, agent) reports have arrived in total (or
+# the deadline passes), printing every START/WAIT line as it arrives and saving every report. A repeated
+# report for the same slot is saved but not counted (run 6: a duplicate collapsed two phases into one and
+# the simultaneous sentences made the gateway's pong late). Never stops the run.
 wait_for() {
   want=$1; t0=$(date +%s)
   while :; do
@@ -103,13 +105,15 @@ for r in json.load(sys.stdin).get("rows", []): print(r["message_id"])' 2>/dev/nu
       case "$body" in
         "ATM TEST REPORT"*)
           REPORTS=$((REPORTS+1)); printf '%s\n' "$body" > "$RUN_DIR/report-$REPORTS.txt"
-          echo "REPORT $REPORTS: $(printf '%s\n' "$body" | grep -E '^(skill|agent|result):' | tr '\n' ' ')" ;;
+          slot="$(printf '%s\n' "$body" | grep -E '^(skill|agent):' | tr '\n' ' ')"
+          case "$SLOTS_SEEN" in *"|$slot|"*) dup=" (repeat, not counted)" ;; *) SLOTS_SEEN="$SLOTS_SEEN|$slot|"; DISTINCT=$((DISTINCT+1)); dup="" ;; esac
+          echo "REPORT $REPORTS: $(printf '%s\n' "$body" | grep -E '^(skill|agent|result):' | tr '\n' ' ')$dup" ;;
         "ATM TEST START"*|"ATM TEST WAIT"*) echo "$body" | head -1 ;;
         *) echo "other message from the fixture ($(printf '%s' "$body" | wc -c | tr -d ' ') bytes)" ;;
       esac
     done
-    [ "$REPORTS" -ge "$want" ] && return 0
-    [ $(( $(date +%s) - t0 )) -ge "$PHASE_DEADLINE" ] && { echo "DEADLINE: $REPORTS/$want reports after ${PHASE_DEADLINE}s; moving on"; return 1; }
+    [ "$DISTINCT" -ge "$want" ] && return 0
+    [ $(( $(date +%s) - t0 )) -ge "$PHASE_DEADLINE" ] && { echo "DEADLINE: $DISTINCT/$want reports after ${PHASE_DEADLINE}s; moving on"; return 1; }
     sleep 10
   done
 }
