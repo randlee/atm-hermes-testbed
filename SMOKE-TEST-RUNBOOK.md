@@ -148,8 +148,13 @@ atm 1.5.9, herdr socket transport, testbed layer rebuilt): seven sentences, seve
 
 ## 6. Post-mortem
 
-One file in atm-core, `docs/plans/hermes-integration-tests/reports/hermes-skill-tests-<V>-<fixture>.md`, from the seven
-reports (template in the plan) plus every line of this runbook that had to change. Then `./teardown.sh`.
+Evidence goes to atm-core `site/reports/` like every other smoke, benchmark and fuzz run, on an `evidence/...`
+branch off the integrate branch under test, by PR into that branch: from the atm-core worktree run
+`python3 scripts/smoke/colima_skill_report.py <run dir>` (the run dir test.sh printed as "reports and logs"). It copies
+the run's files unchanged and renders `colima-hermes-skills.json`, the `hermes-testbed-colima-hermes-skills.xhtml`
+pane, the html frames and the envelope through the sc-compose smoke templates, then refreshes the master index.
+Add a `report.md` beside them for anything the seven reports do not say (versions, findings, runbook lines that
+changed). Then `./teardown.sh`.
 
 ## When a line says FAIL
 

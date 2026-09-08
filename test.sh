@@ -173,8 +173,9 @@ if [ "$FILLED" -eq 7 ] && [ "$PASSED" -eq 7 ]; then VERDICT=PASS; else VERDICT=F
 
 # ── 6. evidence bundle in atm-core's site/reports shape ─────────────────────────────────────────
 # Byte-for-byte copies of the run's outputs plus the two files the report index needs (an index.html and a
-# smoke envelope, see atm-core .just/generate_report_index.py). Publish: copy $RUN_DIR/site/* into
-# atm-core site/reports/ on an evidence branch and run `python3 .just/generate_report_index.py` there.
+# smoke envelope, see atm-core .just/generate_report_index.py). Publish, on an atm-core evidence branch off the
+# integrate branch under test: `python3 scripts/smoke/colima_skill_report.py $RUN_DIR` renders the run in the
+# smoke-report shape (cases json, per-host xhtml pane, html frames, envelope, master index) under site/reports/.
 SITE_REL="smoke/linux/$F/$(basename "$RUN_DIR")-colima-hermes-skills"
 SITE="$RUN_DIR/site/$SITE_REL"; mkdir -p "$SITE"
 cp "$RUN_DIR"/result.txt "$RUN_DIR"/herdr-doctor.json "$SITE"/; cp "$RUN_DIR"/report-*.txt "$SITE"/ 2>/dev/null || true
