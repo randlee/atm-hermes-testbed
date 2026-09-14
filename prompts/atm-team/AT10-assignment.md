@@ -9,11 +9,11 @@ since: suite/v3
 
 # AT10 — assignment and task pass
 
-Exercise task assignment as `fx-at10-alpha` and `fx-at10-beta` in team
-`fx-at10`. Use only public ATM CLI and JSON output. Never inspect a database,
-daemon log, process, or terminal pane. Poll only public CLI observations at
-one-second intervals with a 30-second deadline. Record exact command output
-or JSON excerpts in each report detail.
+Exercise task assignment as `fx-at10-alpha`, `fx-at10-beta`, and
+`fx-at10-gamma` in team `fx-at10`. Use only public ATM CLI and JSON output.
+Never inspect a database, daemon log, process, or terminal pane. Poll only
+public CLI observations at one-second intervals with a 30-second deadline.
+Record exact command output or JSON excerpts in each report detail.
 
 Use unique timestamped task ids and run these cases:
 
@@ -22,8 +22,8 @@ Use unique timestamped task ids and run these cases:
    `atm list --pending-ack --json` for beta must report zero.
 2. Start and complete the ready task. Verify through task events/list that
    the next task becomes ready within one bounded poll pass.
-3. Reassign a queued task to alpha. Public mail/events must show closed with
-   reassigned outcome to beta and queued to alpha.
+3. As assigner alpha, reassign a queued beta task to gamma. Public mail/events
+   must show closed with reassigned outcome to beta and queued to gamma.
 4. While beta is idle, move a queued task to head with `atm task move`; the
    next observation must show one ready event and no duplicate ready event.
 5. Cancel a queued task with `atm task close`; beta's public mail/events must
