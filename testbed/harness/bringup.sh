@@ -13,23 +13,12 @@ CHAT_ID="${TESTBED_CHAT_ID:-1}"
 AS_HERMES="setpriv --reuid=hermes --regid=hermes --init-groups env HOME=/opt/data HERMES_HOME=/opt/data USER=hermes LOGNAME=hermes"
 export ATM_IDENTITY=stub-alpha ATM_TEAM=$TEAM
 
-# 1 (the self-send trust entry for localhost must exist BEFORE the daemon starts: trust is snapshotted at start)
-pkill -x atm-daemon 2>/dev/null || true
-for i in $(seq 1 20); do pgrep -x atm-daemon >/dev/null 2>&1 || break; sleep 1; done   # a daemon killed mid-write still holds the db; starting over it fails
-FP=$(atm peer certificate show --json 2>/dev/null | python3 -c 'import json,sys; print(json.load(sys.stdin)["fingerprint"])')
-atm peer trust add --host localhost --fingerprint "$FP" --https-port 43101 --yes >/dev/null 2>&1 \
-  || atm peer trust replace --host localhost --fingerprint "$FP" --https-port 43101 --yes >/dev/null 2>&1 || true
+# 1 (the self-send trust entry must exist before daemon start: trust is snapshotted at start)
 # The daemon's herdr transport is read once at start from its home config (/root/.atm.toml, [herdr]).
 # 1.5.9 defaults to "socket" (native IPC); written explicitly so a run proves the mode instead of assuming
 # the default. atm doctor --json reports it under .herdr.endpoints[].transport (test.sh prints that line).
 printf '[herdr]\ntransport = "socket"\n' > /root/.atm.toml
-start_daemon() {
-  rm -f /root/.atm/daemon/owner.lock /root/.atm/daemon/local-http.json
-  nohup atm-daemon >>/tmp/atm-daemon.log 2>&1 &
-  for i in $(seq 1 30); do atm doctor --json >/dev/null 2>&1 && return 0; pgrep -x atm-daemon >/dev/null 2>&1 || break; sleep 1; done
-  return 1
-}
-start_daemon || { echo "bringup: daemon start failed once ($(tail -1 /tmp/atm-daemon.log)); retrying"; sleep 2; start_daemon || echo "bringup: WARN daemon not answering (see /tmp/atm-daemon.log)"; }
+/opt/testbed/harness/atm-db-init.sh
 # 2
 chmod 711 /root; chmod 755 /root/.atm /root/.atm/daemon; chmod -R a+rX /root/.atm/daemon
 chmod -R a+rwX /root/.atm/db /root/.atm/logs
@@ -42,12 +31,7 @@ pkill -f "[h]erdr server" 2>/dev/null || true; sleep 1
 nohup herdr server >/tmp/herdr-server.log 2>&1 &
 for i in $(seq 1 30); do [ -S /root/.config/herdr/herdr.sock ] && break; sleep 1; done
 chmod 711 /root/.config /root/.config/herdr; chmod 666 /root/.config/herdr/herdr.sock
-# 4 (add-member creates the team on first use; existing members are left alone)
-atm teams add-member "$TEAM" stub-alpha --agent-type lead   --home-dir /opt/testbed >/dev/null 2>&1 || true   # a lead: no ATM_ROSTER_NO_LEAD warning to chase
-atm teams add-member "$TEAM" stub-beta  --agent-type stub   --home-dir /opt/testbed >/dev/null 2>&1 || true
-atm teams add-member "$TEAM" tester     --agent-type claude --home-dir /opt/testbed --backend herdr --session default >/dev/null 2>&1 || true   # explicit "default" session: the roster shape that broke nudging on rand-m4 (atm-core #1342); null-session shape is covered by hermes-atm hosts
-atm teams add-member "$TEAM" hermes     --agent-type hermes --home-dir /opt/data >/dev/null 2>&1 || true
-atm teams add-member "$TEAM" oversight  --agent-type stub   --home-dir /opt/testbed >/dev/null 2>&1 || true   # test.sh reads the reports as this identity
+# 4 roster was created by atm-db-init.sh.
 # 5 (hermes agents launch from their profile: user hermes, HERMES_HOME=HOME=cwd=/opt/data)
 # The fixture gateway is headless (api_server only): nudges must inject there, not into Telegram (atm-core #1307,
 # fixed in hermes-atm >= 1.5.8 by --platform; older installers do not know the flag, so it is added only when supported).

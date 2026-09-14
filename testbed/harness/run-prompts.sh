@@ -43,13 +43,12 @@ fi
 # --- per-prompt harness preconditions ---------------------------------------
 case "$ID" in
   E0)
-    # team + members the E0 prompt assumes already exist
-    atm teams add e0-smoke >/dev/null 2>&1 || true
-    ATM_IDENTITY=fx-e0-alpha ATM_TEAM=e0-smoke atm teams add-member e0-smoke fx-e0-alpha \
-      --agent-type stub --home-dir /opt/testbed/e0 >/dev/null 2>&1 || true
-    ATM_IDENTITY=fx-e0-beta ATM_TEAM=e0-smoke atm teams add-member e0-smoke fx-e0-beta \
-      --agent-type stub --home-dir /opt/testbed/e0 >/dev/null 2>&1 || true
+    # atm-db-init.sh owns all team/member registration.
     mkdir -p /opt/testbed/e0
+    ;;
+  AT9|AT10|AT11)
+    N=${ID#AT}
+    mkdir -p "/opt/testbed/at$N"
     ;;
   AT0|AT2|AT4|AT5|AT6)
     # prompts that run both members over one team (name pattern fx-at<N>)

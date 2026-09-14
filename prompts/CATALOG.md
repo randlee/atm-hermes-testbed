@@ -29,6 +29,9 @@ fixture execute specific prompts and emit structured reports. Ownership split:
 | AT6 | template-task-dispatch | claude-code (atm-dev) | defined | suite/v1 |
 | AT7 | herdr-steer-routing | claude-code (atm-dev) | defined | suite/v1 |
 | AT8 | send-timeout-truth | claude-code (atm-dev) | defined | suite/v1 |
+| AT9 | task-start | claude-code (atm-dev) | defined | suite/v3 |
+| AT10 | assignment | claude-code (atm-dev) | defined | suite/v3 |
+| AT11 | prompt-handoffs | claude-code (atm-dev) | defined | suite/v3 |
 
 ### atm-team reservations (fenix@atm-dev, 2026-08-29; prompts/atm-team/, agent = claude-code)
 
@@ -43,6 +46,9 @@ fixture execute specific prompts and emit structured reports. Ownership split:
 | AT6 | template-task-dispatch | `atm send --template` j2 dispatch path |
 | AT7 | herdr-steer-routing | GATED: atm pre-release dispatch w/ herdr backend (same gate as D7) |
 | AT8 | send-timeout-truth | uses harness/freeze-daemon.sh (SIGSTOP daemon >3.25s client budget) |
+| AT9 | task-start | public ATM CLI task-start ordering and reminder contract |
+| AT10 | assignment | public ATM CLI assignment, queue, move, reassign, cancel, and completion contract |
+| AT11 | prompt-handoffs | public ATM CLI task-event and disabled-reminder diagnostics contract |
 
 Prompts live in `prompts/atm-team/AT0-*.md` .. `AT8-*.md`; see
 `prompts/atm-team/README.md` for fixture prerequisites. Fixture identities
