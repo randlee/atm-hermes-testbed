@@ -13,20 +13,7 @@ trust_row_present() {
   atm peer trust list --json | python3 -c 'import json,sys; expected=sys.argv[1]; data=json.load(sys.stdin); rows=data if isinstance(data,list) else data.get("rows",[]); raise SystemExit(0 if any(row.get("host")=="localhost" and row.get("fingerprint")==expected and row.get("https_port")==43101 for row in rows) else 1)' "$fingerprint"
 }
 if ! trust_row_present; then
-  trust_add_output=/tmp/atm-peer-trust-add.log
-  # EQ-007: remove this postcondition workaround once offline trust add returns success.
-  if atm peer trust add --host localhost --fingerprint "$fingerprint" --https-port 43101 --yes >"$trust_add_output" 2>&1; then
-    trust_add_rc=0
-  else
-    trust_add_rc=$?
-  fi
-  if ! trust_row_present; then
-    cat "$trust_add_output" >&2
-    exit 1
-  fi
-  if [ "$trust_add_rc" -ne 0 ]; then
-    echo "atm-db-init: trust add rc=$trust_add_rc but row persisted (EQ-007)"
-  fi
+  atm peer trust add --host localhost --fingerprint "$fingerprint" --https-port 43101 --yes
 fi
 
 nohup atm-daemon >>/tmp/atm-daemon.log 2>&1 &

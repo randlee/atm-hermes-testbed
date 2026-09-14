@@ -16,8 +16,8 @@ below is the team of those agents (on the testbed fixture it is `testbed`, not `
 1. **Roster.** `atm members --team <team> --json` lists every expected agent. Observable: missing
    names.
 2. **Receivers registered.** `atm doctor --team <team> --json`, field `.graft_receivers.receivers[]`:
-   one entry per expected agent with a `last_seen` newer than 10 minutes. Print only the `agent`
-   and `last_seen` fields; never print or copy `endpoint` or `capability`. Observable: agents
+   one entry per expected agent with `last_seen_age_seconds` under 600. Print only the `agent`,
+   `last_seen_at` and `last_seen_age_seconds` fields; never print or copy `endpoint` or `capability`. Observable: agents
    without a receiver entry, stale entries.
 3. **Ping.** Take `T=$(date -u +%Y-%m-%dT%H:%M:%SZ)`, then send each expected agent exactly this one
    line with `--requires-ack --stdin`:

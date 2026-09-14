@@ -28,7 +28,7 @@ row or log line is not a finding.
    the error code. Observable: the matching lines (ids redacted to `<id>`).
 3. **Doctor.** `atm doctor --team <team> --json`: `.summary`, the findings with severity other
    than info, and for a Hermes agent its `.graft_receivers.receivers[]` entry (`agent`,
-   `last_seen` only; never `endpoint` or `capability`). Observable: missing or stale receiver,
+   `last_seen_at` and `last_seen_age_seconds` only; never `endpoint` or `capability`). Observable: missing or stale receiver,
    error findings.
 4. **Probe.** `atm send <agent> --requires-ack --stdin` with one line asking for an immediate ack
    reply "probe <unix time>"; wait 60 s; `atm list --unread --json`. Observable: seconds to ack or
