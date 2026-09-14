@@ -8,6 +8,7 @@ ID="${1:?usage: run-prompts.sh <prompt-id>}"
 HERMES_PROMPT=$(ls /opt/testbed/prompts/hermes/${ID}-*.md 2>/dev/null | head -1)
 AT_PROMPT=$(ls /opt/testbed/prompts/atm-team/${ID}-*.md 2>/dev/null | head -1)
 RESULTS=/opt/testbed/results
+PROMPT_WORKSPACE=
 
 # --- frontmatter helper: extract a YAML scalar from the prompt file
 fm() { sed -n "s/^$2: *//p" "$1" | head -1 | tr -d '"' ; }
@@ -43,31 +44,16 @@ fi
 # --- per-prompt harness preconditions ---------------------------------------
 case "$ID" in
   E0)
-    # team + members the E0 prompt assumes already exist
-    atm teams add e0-smoke >/dev/null 2>&1 || true
-    ATM_IDENTITY=fx-e0-alpha ATM_TEAM=e0-smoke atm teams add-member e0-smoke fx-e0-alpha \
-      --agent-type stub --home-dir /opt/testbed/e0 >/dev/null 2>&1 || true
-    ATM_IDENTITY=fx-e0-beta ATM_TEAM=e0-smoke atm teams add-member e0-smoke fx-e0-beta \
-      --agent-type stub --home-dir /opt/testbed/e0 >/dev/null 2>&1 || true
-    mkdir -p /opt/testbed/e0
+    # atm-db-init.sh owns all team/member registration.
+    PROMPT_WORKSPACE=/opt/testbed/e0
     ;;
-  AT0|AT2|AT4|AT5|AT6)
-    # prompts that run both members over one team (name pattern fx-at<N>)
+  AT9|AT10|AT11)
     N=${ID#AT}
-    atm teams add "fx-at$N" >/dev/null 2>&1 || true
-    for M in alpha beta; do
-      ATM_IDENTITY="fx-at$N-$M" ATM_TEAM="fx-at$N" atm teams add-member "fx-at$N" "fx-at$N-$M" \
-        --agent-type stub --home-dir "/opt/testbed/at$N" >/dev/null 2>&1 || true
-    done
-    mkdir -p "/opt/testbed/at$N"
+    PROMPT_WORKSPACE="/opt/testbed/at$N"
     ;;
-  AT1)
-    atm teams add fx-at1 >/dev/null 2>&1 || true
-    ATM_IDENTITY=fx-at1-alpha ATM_TEAM=fx-at1 atm teams add-member fx-at1 fx-at1-alpha \
-      --agent-type stub --home-dir /opt/testbed/at1 >/dev/null 2>&1 || true
-    ATM_IDENTITY=fx-at1-beta ATM_TEAM=fx-at1 atm teams add-member fx-at1 fx-at1-beta \
-      --agent-type stub --home-dir /opt/testbed/at1 >/dev/null 2>&1 || true
-    mkdir -p /opt/testbed/at1
+  AT0|AT1|AT2|AT3|AT4|AT5|AT6)
+    N=${ID#AT}
+    PROMPT_WORKSPACE="/opt/testbed/at$N"
     ;;
   AT8)
     # HGC-023 suite-start stale-marker cleanup (fenix 01M1WXW9R9Z7KH69CDVR4F6122):
@@ -78,38 +64,20 @@ case "$ID" in
           /opt/testbed/results/markers/at8-armed \
           /opt/testbed/results/markers/at8-done \
           /opt/testbed/results/markers/at8-trigger
-    atm teams add fx-at8 >/dev/null 2>&1 || true
-    ATM_IDENTITY=fx-at8-alpha ATM_TEAM=fx-at8 atm teams add-member fx-at8 fx-at8-alpha \
-      --agent-type stub --home-dir /opt/testbed/at8 >/dev/null 2>&1 || true
-    ATM_IDENTITY=fx-at8-beta ATM_TEAM=fx-at8 atm teams add-member fx-at8 fx-at8-beta \
-      --agent-type stub --home-dir /opt/testbed/at8 >/dev/null 2>&1 || true
-    mkdir -p /opt/testbed/at8
-    ;;
-  AT3)
-    # peer-mode gate: the prompt itself stops at step 1 if no trusted peer is
-    # configured; the harness still registers the local team + member.
-    atm teams add fx-at3 >/dev/null 2>&1 || true
-    ATM_IDENTITY=fx-at3-alpha ATM_TEAM=fx-at3 atm teams add-member fx-at3 fx-at3-alpha \
-      --agent-type stub --home-dir /opt/testbed/at3 >/dev/null 2>&1 || true
-    mkdir -p /opt/testbed/at3
+    PROMPT_WORKSPACE=/opt/testbed/at8
     ;;
   AT7)
     # prerelease dispatch gate: needs the herdr backend (atm >= 1.4.4 dispatch)
     strings /usr/local/bin/atm-daemon 2>/dev/null | grep -qi herdr || \
       { echo "SKIP: AT7 needs a daemon carrying the herdr backend"; exit 3; }
-    atm teams add fx-at7 >/dev/null 2>&1 || true
-    ATM_IDENTITY=fx-at7-alpha ATM_TEAM=fx-at7 atm teams add-member fx-at7 fx-at7-alpha \
-      --agent-type stub --home-dir /opt/testbed/at7 >/dev/null 2>&1 || true
-    # beta on the herdr backend; omit --session so the daemon uses the
-    # default herdr socket (a named --session probes a socket that doesn't
-    # exist — D7 pitfall). herdr server must be up for dispatch evidence.
+    # atm-db-init registers beta on the herdr backend. The server must be up
+    # for dispatch evidence.
     pgrep -f "[h]erdr server" >/dev/null || { nohup herdr server > /tmp/herdr-server.log 2>&1 & sleep 6; }
-    ATM_IDENTITY=fx-at7-beta ATM_TEAM=fx-at7 atm teams add-member fx-at7 fx-at7-beta \
-      --agent-type stub --backend herdr --home-dir /opt/testbed/at7 >/dev/null 2>&1 || true
-    mkdir -p /opt/testbed/at7
+    PROMPT_WORKSPACE=/opt/testbed/at7
     ;;
 esac
 
+mkdir -p "$RESULTS" "$PROMPT_WORKSPACE"
 rm -f "$REPORT"
 
 # --- execute ----------------------------------------------------------------
@@ -121,7 +89,9 @@ export HERMES_WRITE_SAFE_ROOT="${HERMES_WRITE_SAFE_ROOT:-/opt/data}:/opt/testbed
 # The hermes agent runs as user 'hermes' (uid 10000) but /opt/testbed is
 # root-owned (write denial at the OS level). Give the fixture dirs to the
 # agent user so report + workspace writes succeed.
-id hermes >/dev/null 2>&1 && chown -R hermes /opt/testbed/results /opt/testbed/e0 2>/dev/null || true
+if id hermes >/dev/null 2>&1; then
+  chown -R hermes "$RESULTS" "$PROMPT_WORKSPACE"
+fi
 
 # The daemon's state lives under /root/.atm (root-only), but prompt agents
 # run non-root (user 'hermes', uid 10000, HOME=/opt/data). Two things must be

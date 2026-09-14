@@ -16,6 +16,19 @@ can, retested, and reported with `cause / fix / retest`.
 | `.claude/skills/atm-nudge-roundtrip/SKILL.md` | run the atm-nudge-roundtrip skill as tester against `<H>` / as responder on fixture `<F>` and send the report to `<O>` |
 | `.claude/skills/atm-troubleshoot/SKILL.md` | run the atm-troubleshoot skill for `<skill>` step `<n>` on `<agent>` and send the cause to `<O>` |
 
+The Tier E task-lifecycle prompts are executed inside the fixture with
+`/opt/testbed/harness/run-prompts.sh AT9`, `AT10`, or `AT11`:
+
+| prompt | contract |
+| --- | --- |
+| `prompts/atm-team/AT9-task-start.md` | task start, queue ordering, and reminders |
+| `prompts/atm-team/AT10-assignment.md` | assignment and task-pass lifecycle |
+| `prompts/atm-team/AT11-prompt-handoffs.md` | task-event prompt handoffs and disabled-reminder diagnostics |
+
+These prompts report `prompt-report-1` JSON and observe behavior only through
+the public ATM CLI. They never inspect SQLite, daemon logs, processes, or
+terminal panes.
+
 The same directories are linked from `.codex/skills/`. Inside the image they are copied to
 `/opt/hermes/skills/` and synced into `$HERMES_HOME/skills/` at boot. Plan:
 atm-core `docs/plans/hermes-integration-tests/sprint-HERMES-SKILL-TESTS-R1.md`.

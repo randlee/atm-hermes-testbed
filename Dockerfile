@@ -95,6 +95,8 @@ COPY testbed/test-tier-d.py /opt/testbed/test-tier-d.py
 COPY --chmod=0755 testbed/test-graph.sh /opt/testbed/test-graph.sh
 COPY assets/asset-provenance.txt /opt/testbed/asset-provenance.txt
 COPY prompts /opt/testbed/prompts
+COPY --chmod=0644 testbed/members.txt /opt/testbed/members.txt
+COPY --chmod=0755 testbed/harness/atm-db-init.sh /opt/testbed/harness/atm-db-init.sh
 COPY --chmod=0755 testbed/harness/run-prompts.sh /opt/testbed/harness/run-prompts.sh
 COPY --chmod=0755 testbed/harness/restart-daemon.sh /opt/testbed/harness/restart-daemon.sh
 COPY --chmod=0755 testbed/harness/freeze-daemon.sh /opt/testbed/harness/freeze-daemon.sh

@@ -1,0 +1,87 @@
+---
+id: AT11-prompt-handoffs
+agent: claude-code
+model: sonnet
+timeout_s: 900
+report: /opt/testbed/results/prompt-AT11.json
+since: suite/v3
+---
+
+# AT11 — prompt handoffs
+
+Exercise prompt-handoff behavior as `fx-at11-alpha` and `fx-at11-beta` in
+team `fx-at11`. Observe only with public ATM CLI JSON (`atm task events`,
+`atm task list`, `atm list/read`, and `atm doctor`). The documented reminder
+default is 60 seconds. Poll every five seconds for at most 150 seconds to observe the
+first reminder, derive the observed interval from ready/reminder timestamps,
+then make case 2 wait `observed interval × 2`. Do not tune or retry these
+bounds. Preserve exact JSON excerpts in report details.
+
+Rules for every case:
+
+- Never read SQLite, daemon logs, processes, or terminal panes. Never run
+  `env`, `ps`, or `strings`. Never read another prompt's report under
+  `/opt/testbed/results/`.
+- When a case names an event (queued, ready, reminder, started, reassigned,
+  cancelled), PASS requires that event to appear in `atm task events
+  <task-id> --json` output, as an `events[].event` or `handoffs[].kind` value
+  (for example `task_ready`, `task_reminder`). A queue position or task state
+  is not an event.
+- Every detail quotes the actual CLI command and its output. Never write an
+  inference as evidence; if the output does not show it, the step fails.
+- Before the next case starts, close every task the case created with `atm
+  task close`, so the assignee starts each case idle with an empty queue.
+- Select the caller on each command with `--as <member> --team <team>` (or
+  an `ATM_IDENTITY=<member> ATM_TEAM=<team>` prefix). Never read ATM config
+  files; use `--help` for usage.
+- Wait only in the foreground: a Bash polling loop with `sleep`, each Bash
+  call at most 100 seconds, repeated as needed. Never run a command in the
+  background and never use ScheduleWakeup or any delay/wakeup tool: this run
+  is `claude -p`, which exits at the end of the turn, so a deferred wakeup
+  never happens and no report is written.
+- Do not read any other prompt's report; the JSON shape above is complete.
+  Get versions only from `atm --version` and the CLI, never from the
+  filesystem.
+
+Before case 1, run `atm teams clear-nudge-template --team fx-at11 --kind
+task_reminder --json` so an earlier run's override does not carry over, and
+quote its output in the case 1 detail.
+
+Run these cases with unique timestamped ids:
+
+1. Assign three tasks to beta. Poll each task with `atm task events <id>
+   --json`. Wait until task 1 has queued, ready, and reminder evidence, then
+   start it as beta and observe started. PASS only if task 1 shows queued,
+   ready, reminder, started in order while tasks 2 and 3 show queued only.
+2. Run `atm teams disable-nudge-template --team fx-at11 --kind
+   task_reminder --json`, assign a new task, and wait longer than the reminder
+   interval established in case 1. PASS only if public task events show
+   queued and ready but no reminder and `atm doctor --json --team fx-at11`
+   reports `disabled_task_nudge_template_override`.
+
+Close all created tasks with public task commands, then run `atm teams
+clear-nudge-template --team fx-at11 --kind task_reminder --json`; both are
+part of the cleanup step. Write
+`/opt/testbed/results/prompt-AT11.json` with exactly this shape, replacing
+placeholders with real values. Verdict passes only if every step passes:
+
+```json
+{
+  "schema": "prompt-report-1",
+  "test_id": "AT11-prompt-handoffs",
+  "agent": "claude-code",
+  "steps": [
+    {"name": "prompted-task-events-only", "status": "pass|fail|skip", "detail": "exact CLI JSON excerpts and observed interval"},
+    {"name": "disabled-reminder-doctor-finding", "status": "pass|fail|skip", "detail": "exact CLI JSON excerpts"},
+    {"name": "cleanup", "status": "pass|fail|skip", "detail": "exact CLI result"}
+  ],
+  "verdict": "pass|fail",
+  "atm_versions": {"atm": "", "hermes_atm": "", "atm_graft": ""},
+  "started_at": "RFC3339 timestamp",
+  "finished_at": "RFC3339 timestamp"
+}
+```
+
+Then print exactly:
+
+`SMOKE-REPORT-WRITTEN /opt/testbed/results/prompt-AT11.json`

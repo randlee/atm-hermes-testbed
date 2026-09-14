@@ -11,9 +11,9 @@ its `requires`/`timeout_s` values.
 
 - **claude-code binary in the image.** Run
   `/opt/testbed/harness/install-claude-code.sh` inside the container (or
-  build it into the image) before any AT0–AT8 prompt runs; it is idempotent
+  build it into the image) before any AT0–AT11 prompt runs; it is idempotent
   and no-ops if `claude` is already on PATH.
-- **`ANTHROPIC_API_KEY` in `env/allowlist.env`.** All nine prompts declare
+- **`ANTHROPIC_API_KEY` in `env/allowlist.env`.** All twelve prompts declare
   `requires: [ANTHROPIC_API_KEY]`; `run.sh`'s `--env-file` must carry it
   through to the container process env.
 - **AT4/AT8 harness handshake scripts**, both under
@@ -42,5 +42,12 @@ its `requires`/`timeout_s` values.
 Per `../CATALOG.md`'s fixture identity naming rule, every identity/team used
 by these nine prompts is prefixed `fx-` and scoped by test: team `fx-at<N>`,
 members `fx-at<N>-<role>` (e.g. `fx-at0-alpha`, `fx-at0-beta`). This is
-mandatory for all AT0–AT8 identities/teams and any future addition to this
+mandatory for all AT0–AT11 identities/teams and any future addition to this
 suite — never reuse a real atm-dev/hermes roster name inside the fixture.
+
+AT9 through AT11 exercise the Phase BB task lifecycle. Run them with
+`/opt/testbed/harness/run-prompts.sh AT9`, `AT10`, or `AT11`. Their agents
+observe the fixture only through public `atm` commands and write the
+`prompt-report-1` JSON named in each prompt's frontmatter. Direct database
+access, daemon-log inspection, and terminal-pane inspection are outside
+these contracts.
