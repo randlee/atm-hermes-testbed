@@ -39,6 +39,9 @@ Rules for every case:
   background and never use ScheduleWakeup or any delay/wakeup tool: this run
   is `claude -p`, which exits at the end of the turn, so a deferred wakeup
   never happens and no report is written.
+- Do not read any other prompt's report; the JSON shape above is complete.
+  Get versions only from `atm --version` and the CLI, never from the
+  filesystem.
 
 Before case 1, run `atm teams clear-nudge-template --team fx-at11 --kind
 task_reminder --json` so an earlier run's override does not carry over, and

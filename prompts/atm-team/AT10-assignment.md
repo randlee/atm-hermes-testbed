@@ -36,6 +36,9 @@ Rules for every case:
   background and never use ScheduleWakeup or any delay/wakeup tool: this run
   is `claude -p`, which exits at the end of the turn, so a deferred wakeup
   never happens and no report is written.
+- Do not read any other prompt's report; the JSON shape above is complete.
+  Get versions only from `atm --version` and the CLI, never from the
+  filesystem.
 
 Use unique timestamped task ids and run these cases:
 
@@ -55,9 +58,11 @@ Use unique timestamped task ids and run these cases:
    for beta, cancel it as alpha with `atm task close <id> cancelled`. PASS
    only if beta's `atm task events <id> --json` or beta's mail (`atm list` /
    `atm read` as beta) shows the cancelled terminal outcome delivered to beta.
-6. Make alpha busy with a task, then have beta start and complete another
-   alpha-assigned task. Alpha's unread/history CLI must contain both started
-   and completed operations written in order.
+6. Make alpha busy: assign alpha a task and have alpha run `atm task start`
+   on it. PASS requires alpha's `atm task list --json` to show that task
+   `active` (quote it) before beta starts and completes another
+   alpha-assigned task. Alpha's unread/history CLI must then contain both
+   started and completed operations written in order.
 
 Close all remaining tasks using public task commands. Write
 `/opt/testbed/results/prompt-AT10.json` with exactly this shape, replacing
