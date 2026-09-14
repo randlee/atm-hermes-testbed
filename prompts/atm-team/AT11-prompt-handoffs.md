@@ -11,12 +11,30 @@ since: suite/v3
 
 Exercise prompt-handoff behavior as `fx-at11-alpha` and `fx-at11-beta` in
 team `fx-at11`. Observe only with public ATM CLI JSON (`atm task events`,
-`atm task list`, `atm list/read`, and `atm doctor`). Never inspect SQLite,
-daemon logs, processes, or terminal panes. The documented reminder default is
-60 seconds. Poll every five seconds for at most 150 seconds to observe the
+`atm task list`, `atm list/read`, and `atm doctor`). The documented reminder
+default is 60 seconds. Poll every five seconds for at most 150 seconds to observe the
 first reminder, derive the observed interval from ready/reminder timestamps,
 then make case 2 wait `observed interval × 2`. Do not tune or retry these
 bounds. Preserve exact JSON excerpts in report details.
+
+Rules for every case:
+
+- Never read SQLite, daemon logs, processes, or terminal panes. Never run
+  `env`, `ps`, or `strings`. Never read another prompt's report under
+  `/opt/testbed/results/`.
+- When a case names an event (queued, ready, reminder, started, reassigned,
+  cancelled), PASS requires that event to appear in `atm task events
+  <task-id> --json` output, as an `events[].event` or `handoffs[].kind` value
+  (for example `task_ready`, `task_reminder`). A queue position or task state
+  is not an event.
+- Every detail quotes the actual CLI command and its output. Never write an
+  inference as evidence; if the output does not show it, the step fails.
+- Before the next case starts, close every task the case created with `atm
+  task close`, so the assignee starts each case idle with an empty queue.
+
+Before case 1, run `atm teams clear-nudge-template --team fx-at11 --kind
+task_reminder --json` so an earlier run's override does not carry over, and
+quote its output in the case 1 detail.
 
 Run these cases with unique timestamped ids:
 
@@ -30,7 +48,9 @@ Run these cases with unique timestamped ids:
    queued and ready but no reminder and `atm doctor --json --team fx-at11`
    reports `disabled_task_nudge_template_override`.
 
-Close all created tasks with public task commands. Write
+Close all created tasks with public task commands, then run `atm teams
+clear-nudge-template --team fx-at11 --kind task_reminder --json`; both are
+part of the cleanup step. Write
 `/opt/testbed/results/prompt-AT11.json` with exactly this shape, replacing
 placeholders with real values. Verdict passes only if every step passes:
 

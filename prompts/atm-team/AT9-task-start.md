@@ -11,10 +11,25 @@ since: suite/v3
 
 Exercise the ATM task-start contract as `fx-at9-alpha` (assigner) and
 `fx-at9-beta` (assignee) in team `fx-at9`. Use only public ATM CLI commands.
-Do not read a database, daemon log, process, or terminal pane. Capture exact
-JSON excerpts in each report detail. Task reminders use atm-core's documented
-60-second default: poll every five seconds for at most 150 seconds (two
-intervals plus scheduling margin). A timeout is FAIL; do not tune or retry.
+Capture exact JSON excerpts in each report detail. Task reminders use
+atm-core's documented 60-second default: poll every five seconds for at most
+150 seconds (two intervals plus scheduling margin). A timeout is FAIL; do not
+tune or retry.
+
+Rules for every case:
+
+- Never read SQLite, daemon logs, processes, or terminal panes. Never run
+  `env`, `ps`, or `strings`. Never read another prompt's report under
+  `/opt/testbed/results/`.
+- When a case names an event (queued, ready, reminder, started, reassigned,
+  cancelled), PASS requires that event to appear in `atm task events
+  <task-id> --json` output, as an `events[].event` or `handoffs[].kind` value
+  (for example `task_ready`, `task_reminder`). A queue position or task state
+  is not an event.
+- Every detail quotes the actual CLI command and its output. Never write an
+  inference as evidence; if the output does not show it, the step fails.
+- Before the next case starts, close every task the case created with `atm
+  task close`, so the assignee starts each case idle with an empty queue.
 
 Run these cases with unique task ids containing the current Unix timestamp:
 
@@ -26,8 +41,9 @@ Run these cases with unique task ids containing the current Unix timestamp:
    list --json` as beta. PASS only if the started task is active and ordered
    ahead of the still-assigned task.
 3. Assign one task and do not start it. Poll `atm task events <task-id>
-   --json` until at least two reminder events are visible. PASS only if the
-   task remains assigned and both reminders are durable through the CLI.
+   --json` until at least two `task_reminder` events are visible. PASS only
+   if the task remains assigned and both reminders are durable through the
+   CLI.
 
 Close every created task through `atm task close`; cleanup failure is a
 failed step. Write `/opt/testbed/results/prompt-AT9.json` with exactly this

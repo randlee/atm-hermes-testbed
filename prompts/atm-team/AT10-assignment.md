@@ -11,9 +11,23 @@ since: suite/v3
 
 Exercise task assignment as `fx-at10-alpha`, `fx-at10-beta`, and
 `fx-at10-gamma` in team `fx-at10`. Use only public ATM CLI and JSON output.
-Never inspect a database, daemon log, process, or terminal pane. Poll only
-public CLI observations at one-second intervals with a 30-second deadline.
-Record exact command output or JSON excerpts in each report detail.
+Poll only public CLI observations at one-second intervals with a 30-second
+deadline. Record exact command output or JSON excerpts in each report detail.
+
+Rules for every case:
+
+- Never read SQLite, daemon logs, processes, or terminal panes. Never run
+  `env`, `ps`, or `strings`. Never read another prompt's report under
+  `/opt/testbed/results/`.
+- When a case names an event (queued, ready, reminder, started, reassigned,
+  cancelled), PASS requires that event to appear in `atm task events
+  <task-id> --json` output, as an `events[].event` or `handoffs[].kind` value
+  (for example `task_ready`, `task_reminder`). A queue position or task state
+  is not an event.
+- Every detail quotes the actual CLI command and its output. Never write an
+  inference as evidence; if the output does not show it, the step fails.
+- Before the next case starts, close every task the case created with `atm
+  task close`, so the assignee starts each case idle with an empty queue.
 
 Use unique timestamped task ids and run these cases:
 

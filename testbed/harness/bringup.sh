@@ -7,6 +7,7 @@
 #   4 roster            (team `testbed`: stub-alpha, stub-beta, tester[herdr], hermes, oversight)
 #   5 hermes-atm hook   (as hermes, from the profile dir /opt/data), receiver dir, gateway restart
 #   6 Claude Code tester(herdr hook for hermes, hmux team from /opt/testbed/.atm.toml, agent rename)
+#     + one idle herdr stub agent per `stub ... herdr` row of members.txt
 set -eu
 TEAM=testbed
 CHAT_ID="${TESTBED_CHAT_ID:-1}"
@@ -62,6 +63,16 @@ for a in json.load(sys.stdin)["result"]["agents"]:
         print(a["pane_id"]); break' 2>/dev/null || true)
   if [ -n "$PANE" ]; then herdr agent rename "$PANE" tester >/dev/null 2>&1 || true; break; fi
   sleep 2
+done
+# Every `stub ... herdr` member gets a visible, idle herdr agent that swallows its nudges: a tab whose
+# foreground process reports itself idle (kind `pi`, which herdr only prompts while it is the pane's
+# foreground process) and then execs `cat >/dev/null` under that name. Task ready/reminder handoffs
+# only happen for a visible idle herdr agent (atm doctor: herdr member outcome `visible`).
+awk '$3=="stub" && $5=="herdr" {print $2}' /opt/testbed/members.txt | while read -r M; do
+  P=$(herdr tab create --no-focus --label "$M" | python3 -c 'import sys,json; print(json.load(sys.stdin)["result"]["root_pane"]["pane_id"])') \
+    || { echo "bringup: WARN herdr tab for stub agent $M not created"; continue; }
+  herdr pane run "$P" "exec bash -c 'herdr pane report-agent \"\$HERDR_PANE_ID\" --source testbed-stub --agent pi --state idle >/dev/null; exec -a pi cat >/dev/null'" >/dev/null
+  sleep 2; herdr agent rename "$P" "$M" >/dev/null || echo "bringup: WARN herdr stub agent $M not registered"
 done
 echo "bringup: done"
 pgrep -f "[h]ermes gateway run" >/dev/null 2>&1 && echo "bringup: gateway up ($(grep -c 'hook(s) loaded' /opt/data/logs/gateway.log 2>/dev/null) hook load(s) logged)" || echo "bringup: WARN gateway not running (see /opt/data/logs/gateway.log)"
