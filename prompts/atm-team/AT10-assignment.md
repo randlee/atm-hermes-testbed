@@ -51,8 +51,10 @@ Use unique timestamped task ids and run these cases:
    Then move B to head with `atm task move <B> --head`. PASS only if B's
    events then show exactly one `task_ready` and A's events still show exactly
    one `task_ready` (no duplicate ready event on either task).
-5. Cancel a queued task with `atm task close`; beta's public mail/events must
-   show the cancelled terminal outcome.
+5. As assigner alpha, assign a task to beta and, while it is still queued
+   for beta, cancel it as alpha with `atm task close <id> cancelled`. PASS
+   only if beta's `atm task events <id> --json` or beta's mail (`atm list` /
+   `atm read` as beta) shows the cancelled terminal outcome delivered to beta.
 6. Make alpha busy with a task, then have beta start and complete another
    alpha-assigned task. Alpha's unread/history CLI must contain both started
    and completed operations written in order.
