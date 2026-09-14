@@ -117,4 +117,9 @@ fi
 
 # Everything inside the container: daemon (after trust), perms, herdr, roster, hermes-atm hook,
 # gateway restart, Claude Code tester via hmux. Rerunnable. See harness/bringup.sh.
-docker exec -e TESTBED_CHAT_ID="${TESTBED_CHAT_ID:-1}" "$NAME" /opt/testbed/harness/bringup.sh 2>&1 | grep "^bringup:"
+if BRINGUP_OUTPUT=$(docker exec -e TESTBED_CHAT_ID="${TESTBED_CHAT_ID:-1}" "$NAME" /opt/testbed/harness/bringup.sh 2>&1); then
+  printf '%s\n' "$BRINGUP_OUTPUT" | grep "^bringup:"
+else
+  printf '%s\n' "$BRINGUP_OUTPUT" >&2
+  exit 1
+fi

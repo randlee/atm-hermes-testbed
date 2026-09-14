@@ -9,9 +9,7 @@ export ATM_IDENTITY=${ATM_IDENTITY:-stub-alpha} ATM_TEAM=$TEAM
 [ -r "$MEMBERS" ] || { echo "atm-db-init: missing members file: $MEMBERS" >&2; exit 1; }
 
 fingerprint=$(atm peer certificate show --json | python3 -c 'import json,sys; print(json.load(sys.stdin)["fingerprint"])')
-if atm peer trust list --json | python3 -c 'import json,sys; data=json.load(sys.stdin); rows=data if isinstance(data,list) else data.get("rows",[]); raise SystemExit(0 if any(row.get("host")=="localhost" for row in rows) else 1)'; then
-  atm peer trust replace --host localhost --fingerprint "$fingerprint" --https-port 43101 --yes >/dev/null
-else
+if ! atm peer trust list --json | python3 -c 'import json,sys; expected=sys.argv[1]; data=json.load(sys.stdin); rows=data if isinstance(data,list) else data.get("rows",[]); raise SystemExit(0 if any(row.get("host")=="localhost" and row.get("fingerprint")==expected for row in rows) else 1)' "$fingerprint"; then
   atm peer trust add --host localhost --fingerprint "$fingerprint" --https-port 43101 --yes >/dev/null
 fi
 
