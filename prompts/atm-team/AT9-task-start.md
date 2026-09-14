@@ -52,9 +52,11 @@ Run these cases with unique task ids containing the current Unix timestamp:
    list --json` as beta. PASS only if the started task is active and ordered
    ahead of the still-assigned task.
 3. Assign one task and do not start it. Poll `atm task events <task-id>
-   --json` until at least two `task_reminder` events are visible. PASS only
-   if the task remains assigned and both reminders are durable through the
-   CLI.
+   --json` until at least two `handoffs[]` entries with `"kind":
+   "task_reminder"` are visible. Count only those handoffs: the first ready
+   notification is also logged as an `events[].event` value `reminded` and as
+   a `task_ready` handoff, and neither counts as a reminder. PASS only if the
+   task remains assigned and the output quotes both `task_reminder` handoffs.
 
 Close every created task through `atm task close`; cleanup failure is a
 failed step. Write `/opt/testbed/results/prompt-AT9.json` with exactly this
