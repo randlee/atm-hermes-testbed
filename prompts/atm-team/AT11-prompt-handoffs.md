@@ -31,6 +31,14 @@ Rules for every case:
   inference as evidence; if the output does not show it, the step fails.
 - Before the next case starts, close every task the case created with `atm
   task close`, so the assignee starts each case idle with an empty queue.
+- Select the caller on each command with `--as <member> --team <team>` (or
+  an `ATM_IDENTITY=<member> ATM_TEAM=<team>` prefix). Never read ATM config
+  files; use `--help` for usage.
+- Wait only in the foreground: a Bash polling loop with `sleep`, each Bash
+  call at most 100 seconds, repeated as needed. Never run a command in the
+  background and never use ScheduleWakeup or any delay/wakeup tool: this run
+  is `claude -p`, which exits at the end of the turn, so a deferred wakeup
+  never happens and no report is written.
 
 Before case 1, run `atm teams clear-nudge-template --team fx-at11 --kind
 task_reminder --json` so an earlier run's override does not carry over, and

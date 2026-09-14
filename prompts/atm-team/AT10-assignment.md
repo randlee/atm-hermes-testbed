@@ -28,18 +28,29 @@ Rules for every case:
   inference as evidence; if the output does not show it, the step fails.
 - Before the next case starts, close every task the case created with `atm
   task close`, so the assignee starts each case idle with an empty queue.
+- Select the caller on each command with `--as <member> --team <team>` (or
+  an `ATM_IDENTITY=<member> ATM_TEAM=<team>` prefix). Never read ATM config
+  files; use `--help` for usage.
+- Wait only in the foreground: a Bash polling loop with `sleep`, each Bash
+  call at most 100 seconds, repeated as needed. Never run a command in the
+  background and never use ScheduleWakeup or any delay/wakeup tool: this run
+  is `claude -p`, which exits at the end of the turn, so a deferred wakeup
+  never happens and no report is written.
 
 Use unique timestamped task ids and run these cases:
 
 1. Assign three tasks to idle beta. Through `atm task events --json`, verify
-   queued positions 1, 2, 3 and exactly one ready task. After each assignment,
-   `atm list --pending-ack --json` for beta must report zero.
+   queued positions 1, 2, 3 and exactly one ready task. Run `atm list
+   --pending-ack --json` as beta right after each of the three assignments
+   (three separate runs) and quote all three outputs; each must report zero.
 2. Start and complete the ready task. Verify through task events/list that
    the next task becomes ready within one bounded poll pass.
 3. As assigner alpha, reassign a queued beta task to gamma. Public mail/events
    must show closed with reassigned outcome to beta and queued to gamma.
-4. While beta is idle, move a queued task to head with `atm task move`; the
-   next observation must show one ready event and no duplicate ready event.
+4. Assign tasks A then B to idle beta and wait until A shows `task_ready`.
+   Then move B to head with `atm task move <B> --head`. PASS only if B's
+   events then show exactly one `task_ready` and A's events still show exactly
+   one `task_ready` (no duplicate ready event on either task).
 5. Cancel a queued task with `atm task close`; beta's public mail/events must
    show the cancelled terminal outcome.
 6. Make alpha busy with a task, then have beta start and complete another
