@@ -12,8 +12,11 @@ since: suite/v3
 Exercise prompt-handoff behavior as `fx-at11-alpha` and `fx-at11-beta` in
 team `fx-at11`. Observe only with public ATM CLI JSON (`atm task events`,
 `atm task list`, `atm list/read`, and `atm doctor`). Never inspect SQLite,
-daemon logs, processes, or terminal panes. Poll once per second with a
-60-second deadline and preserve exact JSON excerpts in report details.
+daemon logs, processes, or terminal panes. The documented reminder default is
+60 seconds. Poll every five seconds for at most 150 seconds to observe the
+first reminder, derive the observed interval from ready/reminder timestamps,
+then make case 2 wait `observed interval × 2`. Do not tune or retry these
+bounds. Preserve exact JSON excerpts in report details.
 
 Run these cases with unique timestamped ids:
 
@@ -28,10 +31,26 @@ Run these cases with unique timestamped ids:
    reports `disabled_task_nudge_template_override`.
 
 Close all created tasks with public task commands. Write
-`/opt/testbed/results/prompt-AT11.json` using exactly the `prompt-report-1`
-shape in `results-run-v146/prompt-AT0.json`, test_id
-`AT11-prompt-handoffs`, one step per case plus cleanup, lowercase statuses,
-real versions and timestamps. Verdict passes only if every step passes. Then
-print exactly:
+`/opt/testbed/results/prompt-AT11.json` with exactly this shape, replacing
+placeholders with real values. Verdict passes only if every step passes:
+
+```json
+{
+  "schema": "prompt-report-1",
+  "test_id": "AT11-prompt-handoffs",
+  "agent": "claude-code",
+  "steps": [
+    {"name": "prompted-task-events-only", "status": "pass|fail|skip", "detail": "exact CLI JSON excerpts and observed interval"},
+    {"name": "disabled-reminder-doctor-finding", "status": "pass|fail|skip", "detail": "exact CLI JSON excerpts"},
+    {"name": "cleanup", "status": "pass|fail|skip", "detail": "exact CLI result"}
+  ],
+  "verdict": "pass|fail",
+  "atm_versions": {"atm": "", "hermes_atm": "", "atm_graft": ""},
+  "started_at": "RFC3339 timestamp",
+  "finished_at": "RFC3339 timestamp"
+}
+```
+
+Then print exactly:
 
 `SMOKE-REPORT-WRITTEN /opt/testbed/results/prompt-AT11.json`

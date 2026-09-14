@@ -33,9 +33,30 @@ Use unique timestamped task ids and run these cases:
    and completed operations written in order.
 
 Close all remaining tasks using public task commands. Write
-`/opt/testbed/results/prompt-AT10.json` in the exact `prompt-report-1` shape
-shown by `results-run-v146/prompt-AT0.json`, with test_id `AT10-assignment`,
-one step per case plus cleanup, real versions/timestamps, and lowercase
-statuses. Verdict passes only when every step passes. Print exactly:
+`/opt/testbed/results/prompt-AT10.json` with exactly this shape, replacing
+placeholders with real values. Verdict passes only when every step passes:
+
+```json
+{
+  "schema": "prompt-report-1",
+  "test_id": "AT10-assignment",
+  "agent": "claude-code",
+  "steps": [
+    {"name": "three-queued-then-one-ready", "status": "pass|fail|skip", "detail": "exact CLI JSON excerpt"},
+    {"name": "close-releases-next", "status": "pass|fail|skip", "detail": "exact CLI JSON excerpt"},
+    {"name": "reassign-notifies-both", "status": "pass|fail|skip", "detail": "exact CLI JSON excerpt"},
+    {"name": "move-head-readies-once", "status": "pass|fail|skip", "detail": "exact CLI JSON excerpt"},
+    {"name": "cancel-notifies-assignee", "status": "pass|fail|skip", "detail": "exact CLI JSON excerpt"},
+    {"name": "busy-assigner-sees-terminal-lines", "status": "pass|fail|skip", "detail": "exact CLI JSON excerpt"},
+    {"name": "cleanup", "status": "pass|fail|skip", "detail": "exact CLI result"}
+  ],
+  "verdict": "pass|fail",
+  "atm_versions": {"atm": "", "hermes_atm": "", "atm_graft": ""},
+  "started_at": "RFC3339 timestamp",
+  "finished_at": "RFC3339 timestamp"
+}
+```
+
+Print exactly:
 
 `SMOKE-REPORT-WRITTEN /opt/testbed/results/prompt-AT10.json`

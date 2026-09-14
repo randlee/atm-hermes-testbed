@@ -50,23 +50,9 @@ case "$ID" in
     N=${ID#AT}
     mkdir -p "/opt/testbed/at$N"
     ;;
-  AT0|AT2|AT4|AT5|AT6)
-    # prompts that run both members over one team (name pattern fx-at<N>)
+  AT0|AT1|AT2|AT3|AT4|AT5|AT6)
     N=${ID#AT}
-    atm teams add "fx-at$N" >/dev/null 2>&1 || true
-    for M in alpha beta; do
-      ATM_IDENTITY="fx-at$N-$M" ATM_TEAM="fx-at$N" atm teams add-member "fx-at$N" "fx-at$N-$M" \
-        --agent-type stub --home-dir "/opt/testbed/at$N" >/dev/null 2>&1 || true
-    done
     mkdir -p "/opt/testbed/at$N"
-    ;;
-  AT1)
-    atm teams add fx-at1 >/dev/null 2>&1 || true
-    ATM_IDENTITY=fx-at1-alpha ATM_TEAM=fx-at1 atm teams add-member fx-at1 fx-at1-alpha \
-      --agent-type stub --home-dir /opt/testbed/at1 >/dev/null 2>&1 || true
-    ATM_IDENTITY=fx-at1-beta ATM_TEAM=fx-at1 atm teams add-member fx-at1 fx-at1-beta \
-      --agent-type stub --home-dir /opt/testbed/at1 >/dev/null 2>&1 || true
-    mkdir -p /opt/testbed/at1
     ;;
   AT8)
     # HGC-023 suite-start stale-marker cleanup (fenix 01M1WXW9R9Z7KH69CDVR4F6122):
@@ -77,34 +63,15 @@ case "$ID" in
           /opt/testbed/results/markers/at8-armed \
           /opt/testbed/results/markers/at8-done \
           /opt/testbed/results/markers/at8-trigger
-    atm teams add fx-at8 >/dev/null 2>&1 || true
-    ATM_IDENTITY=fx-at8-alpha ATM_TEAM=fx-at8 atm teams add-member fx-at8 fx-at8-alpha \
-      --agent-type stub --home-dir /opt/testbed/at8 >/dev/null 2>&1 || true
-    ATM_IDENTITY=fx-at8-beta ATM_TEAM=fx-at8 atm teams add-member fx-at8 fx-at8-beta \
-      --agent-type stub --home-dir /opt/testbed/at8 >/dev/null 2>&1 || true
     mkdir -p /opt/testbed/at8
-    ;;
-  AT3)
-    # peer-mode gate: the prompt itself stops at step 1 if no trusted peer is
-    # configured; the harness still registers the local team + member.
-    atm teams add fx-at3 >/dev/null 2>&1 || true
-    ATM_IDENTITY=fx-at3-alpha ATM_TEAM=fx-at3 atm teams add-member fx-at3 fx-at3-alpha \
-      --agent-type stub --home-dir /opt/testbed/at3 >/dev/null 2>&1 || true
-    mkdir -p /opt/testbed/at3
     ;;
   AT7)
     # prerelease dispatch gate: needs the herdr backend (atm >= 1.4.4 dispatch)
     strings /usr/local/bin/atm-daemon 2>/dev/null | grep -qi herdr || \
       { echo "SKIP: AT7 needs a daemon carrying the herdr backend"; exit 3; }
-    atm teams add fx-at7 >/dev/null 2>&1 || true
-    ATM_IDENTITY=fx-at7-alpha ATM_TEAM=fx-at7 atm teams add-member fx-at7 fx-at7-alpha \
-      --agent-type stub --home-dir /opt/testbed/at7 >/dev/null 2>&1 || true
-    # beta on the herdr backend; omit --session so the daemon uses the
-    # default herdr socket (a named --session probes a socket that doesn't
-    # exist — D7 pitfall). herdr server must be up for dispatch evidence.
+    # atm-db-init registers beta on the herdr backend. The server must be up
+    # for dispatch evidence.
     pgrep -f "[h]erdr server" >/dev/null || { nohup herdr server > /tmp/herdr-server.log 2>&1 & sleep 6; }
-    ATM_IDENTITY=fx-at7-beta ATM_TEAM=fx-at7 atm teams add-member fx-at7 fx-at7-beta \
-      --agent-type stub --backend herdr --home-dir /opt/testbed/at7 >/dev/null 2>&1 || true
     mkdir -p /opt/testbed/at7
     ;;
 esac
