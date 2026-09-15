@@ -3,7 +3,7 @@
 #
 #   ./test.sh
 #
-# Installs the three things in colima (Hermes fork, herdr, latest ATM prerelease), starts the ATM
+# Installs the three things in colima (a patched Hermes release tag, herdr, latest ATM prerelease), starts the ATM
 # daemon and the Hermes gateway inside the container, sends the seven sentences that run the five
 # atm-* skills, collects the seven reports and prints PASS or FAIL with the exact versions tested.
 # Nothing on this Mac is touched: no host daemon, no host trust store, no peer link. Everything the
@@ -38,6 +38,10 @@ mkdir -p "$HERE/.cache" "$RUN_DIR"
 
 # ── 1. inputs, all from the network ─────────────────────────────────────────────────────────────
 step "resolve inputs"
+HERMES_RELEASE="$($HERE/build.sh resolve-hermes-release)" || die "Hermes release-tag resolution failed"
+HERMES_TAG="$(printf '%s\n' "$HERMES_RELEASE" | sed -n 's/^tag=//p')"
+HERMES_SHA="$(printf '%s\n' "$HERMES_RELEASE" | sed -n 's/^sha=//p')"
+echo "hermes release: $HERMES_TAG @ $HERMES_SHA"
 TAG="$(gh api "repos/$ATM_REPO/git/matching-refs/tags/prerelease/" --jq '.[].ref' | sed 's|^refs/tags/||' | sort -V | tail -1)"
 [ -n "$TAG" ] || die "no prerelease/vX.Y.Z tag in $ATM_REPO"
 V="${TAG#prerelease/v}"
@@ -69,13 +73,17 @@ fi
 step "build (10-20 min the first time, seconds when nothing changed)"
 ATM_TARBALL="$ATM_DIR/atm_${V}_${ARCH}-unknown-linux-gnu.tar.gz" WHEELS_DIR="$WHEELS" "$HERE/build.sh" all > "$RUN_DIR/build.log" 2>&1 \
   || { tail -30 "$RUN_DIR/build.log"; die "build failed (full log: $RUN_DIR/build.log)"; }
-HERMES_SHA="$(cat "$HERE/.cache/hermes-sha")"
 grep -E '^(base context|atm tarball override|wheels override):' "$RUN_DIR/build.log"
 
 # ── 3. start: daemon, herdr, roster, hermes-atm hook, gateway, Claude Code tester ────────────────
 step "start the fixture"
 "$HERE/run.sh" --gateway --no-peer > "$RUN_DIR/run.log" 2>&1 || { tail -20 "$RUN_DIR/run.log"; die "run.sh failed (full log: $RUN_DIR/run.log)"; }
 grep '^bringup:' "$RUN_DIR/run.log"
+docker cp "$NAME:/opt/testbed/hermes-release.txt" "$RUN_DIR/hermes-release.txt" || die "image is missing Hermes release metadata"
+HERMES_TAG="$(sed -n 's/^tag=//p' "$RUN_DIR/hermes-release.txt")"
+HERMES_SHA="$(sed -n 's/^sha=//p' "$RUN_DIR/hermes-release.txt")"
+HERMES_VERSION="$(sed -n 's/^version=//p' "$RUN_DIR/hermes-release.txt")"
+[ -n "$HERMES_TAG" ] && [ -n "$HERMES_SHA" ] && [ -n "$HERMES_VERSION" ] || die "image stamped incomplete Hermes release metadata"
 VERSIONS="$(docker exec "$NAME" sh -c 'printf "hermes %s | %s | %s\n" "$(hermes --version 2>/dev/null | grep -im1 hermes)" "$(atm-daemon --version)" "$(herdr --version)"')"
 echo "$VERSIONS"
 docker exec "$NAME" atm doctor --json 2>/dev/null | python3 -c 'import json,sys; json.dump(json.load(sys.stdin).get("herdr",{}), sys.stdout, indent=1)' > "$RUN_DIR/herdr-doctor.json"
@@ -163,7 +171,7 @@ if [ "$FILLED" -eq 7 ] && [ "$PASSED" -eq 7 ] && [ "$HERDR_OK" = yes ]; then VER
 {
   echo "$VERDICT  skills reported $FILLED/7, PASS $PASSED/7 ($REPORTS report messages); herdr doctor ok: $HERDR_OK"
   echo "atm:    $V ($TAG @ $(echo "$SHA" | cut -c1-9), prerelease-archive run $PRE, ci run $CI)"
-  echo "hermes: randlee/hermes-agent @ $(echo "$HERMES_SHA" | cut -c1-9)"
+  echo "hermes: randlee/hermes-agent $HERMES_TAG @ $HERMES_SHA (hermes-agent $HERMES_VERSION)"
   echo "$VERSIONS"
   echo "herdr transport: $HERDR_TRANSPORT (atm doctor --json .herdr.endpoints[].transport; bringup writes [herdr] transport=\"socket\" to /root/.atm.toml)"
   for f in "$RUN_DIR"/report-*.txt; do

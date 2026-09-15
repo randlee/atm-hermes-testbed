@@ -14,9 +14,13 @@ One script installs everything in colima and starts it, no arguments, working th
 ./test.sh        # needs env/allowlist.env with ANTHROPIC_API_KEY (see env/allowlist.env.example); prints PASS or FAIL
 ```
 
-1. **Hermes**: the most recent fork build, `randlee/hermes-agent` = latest upstream Hermes release + the ATM patch.
-   `build.sh` clones the fork from its URL into `.cache/` at `HERMES_REF` (default `main`) and stamps the SHA into
-   the image (`/opt/hermes/.hermes_build_sha`); the verdict prints it.
+Hermes defaults to the newest annotated `v*-atm` tag published by
+`randlee/hermes-agent`. To reproduce a release, set `HERMES_REF` to an
+existing `v*-atm` tag; branch names and unpatched tags are refused.
+
+1. **Hermes**: the newest patched fork release tag, `randlee/hermes-agent` `v*-atm` = an upstream Hermes release plus
+   the ATM patch. `build.sh` resolves only an annotated `v*-atm` tag (or validates an explicit existing one), builds its
+   peeled commit, and stamps the tag, full SHA, and `hermes-agent` version into the image and run results.
 2. **herdr**: `brew install herdr` (homebrew-core, 0.8.2). Inside the Linux container homebrew-core has no
    herdr bottle (only `arm64_tahoe`), so `install.sh` takes the same 0.8.2 binary from the GitHub release,
    sha256-checked; on a Mac the brew command is the install.
@@ -35,7 +39,7 @@ without help. Until that has happened, nothing here is done.
 
 ## Goal
 
-Run the hermes-agent fork (`randlee/hermes-agent`, branch `main`) inside a Docker
+Run the patched hermes-agent fork release (`randlee/hermes-agent`, newest `v*-atm` tag) inside a Docker
 container and exercise ATM (Agent Team Mail) graph behavior against it in full
 isolation: multiple agent identities, message routing, nudge round-trips, and the
 hermes-atm injection seam — **without touching the host's live fleet, profiles,
@@ -60,7 +64,7 @@ env vars, or running agents.**
 ```
 colima VM (arm64) ── docker daemon
    └── container (--platform linux/amd64, Rosetta)
-        ├── hermes fork (built from Dockerfile in randlee/hermes-agent main)
+        ├── hermes fork (built from Dockerfile at a randlee/hermes-agent `v*-atm` tag)
         │    └── s6-overlay: gateway + hermes core (one test profile)
         ├── hermes-atm wheel (from wheelhouse / TestPyPI) — injection seam client
         ├── atm 1.4.3 linux-x86_64 (GitHub Release tarball — the installer path)

@@ -331,8 +331,16 @@ RUN mkdir -p /opt/hermes/bin && \
 # (.github/workflows/docker.yml) passes ${{ github.sha }} so
 # every published image has it.
 ARG HERMES_GIT_SHA=
+ARG HERMES_GIT_TAG=
+ARG HERMES_AGENT_VERSION=
+LABEL org.opencontainers.image.revision="${HERMES_GIT_SHA}" \
+      org.opencontainers.image.version="${HERMES_AGENT_VERSION}" \
+      io.randlee.hermes-agent.tag="${HERMES_GIT_TAG}"
 RUN if [ -n "${HERMES_GIT_SHA}" ]; then \
         printf '%s\n' "${HERMES_GIT_SHA}" > /opt/hermes/.hermes_build_sha; \
+        mkdir -p /opt/testbed; \
+        printf 'tag=%s\nsha=%s\nversion=%s\n' "${HERMES_GIT_TAG}" "${HERMES_GIT_SHA}" "${HERMES_AGENT_VERSION}" \
+            > /opt/testbed/hermes-release.txt; \
     fi
 
 # ---------- s6-overlay service wiring ----------

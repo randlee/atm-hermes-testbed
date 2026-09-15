@@ -1,17 +1,18 @@
 #!/bin/sh
 # hermes-docker-testbed — build script
-# Usage: ./build.sh [base|testbed|all]   (default: all)
+# Usage: ./build.sh [resolve-hermes-release|base|testbed|all]   (default: all)
 #   base    — rebuild the fork image (loki/hermes-testbed:base) from Dockerfile.base
 #   testbed — rebuild the testbed layer (loki/hermes-testbed:testbed)
 # Idempotent: assets are fetched once into assets/ and checksum-verified.
 set -eu
 
 HERE="$(cd "$(dirname "$0")" && pwd)"
-# Hermes fork: nothing on local disk is referenced. The fork is cloned from its URL into
-# .cache/ (gitignored) and built at HERMES_REF (default main = latest upstream release + ATM patch).
+# Hermes is cloned from the fork URL into .cache/ (gitignored) and built only
+# at a patched, annotated `v*-atm` release tag. Never build a floating branch.
 FORK_URL=https://github.com/randlee/hermes-agent.git
-HERMES_REF="${HERMES_REF:-main}"
+HERMES_REF="${HERMES_REF:-}"
 FORK_WT="$HERE/.cache/hermes-agent"
+HERMES_RELEASE_FILE="$HERE/.cache/hermes-release.txt"
 # (wheelhouse retired 2026-09-04 — wheels via WHEELS_DIR only)
 
 # ── Platform switch (AR: #1097 ships a native aarch64 tarball from 1.4.6 on) ──
@@ -25,7 +26,6 @@ case "$TESTBED_PLATFORM" in
   arm64) ATM_ARCH=aarch64; GRAFT_WHL_ARCH=manylinux_2_17_aarch64; DOCKER_PLAT=linux/arm64 ;;
   *) echo "FATAL: TESTBED_PLATFORM must be amd64 or arm64"; exit 1 ;;
 esac
-echo "platform: $TESTBED_PLATFORM ($DOCKER_PLAT)"
 
 ATM_VERSION=${ATM_VERSION_OVERRIDE:-1.4.3}
 ATM_ARCHIVE="atm_${ATM_VERSION}_${ATM_ARCH}-unknown-linux-gnu.tar.gz"
@@ -55,7 +55,56 @@ ATM_GRAFT_WHEEL=""
 
 TARGET="${1:-all}"
 
-docker context show >/dev/null 2>&1 || { echo "docker not reachable (colima start?)"; exit 1; }
+release_error() {
+  echo "FATAL: $*" >&2
+  exit 1
+}
+
+release_tags() {
+  git ls-remote --tags "$FORK_URL" 'v*-atm^{}' 2>/dev/null |
+    awk '{ tag = $2; sub("^refs/tags/", "", tag); sub("\\^\\{\\}$", "", tag); print tag "\t" $1 }'
+}
+
+resolve_hermes_release() {
+  release_tags="$(release_tags)"
+  [ -n "$release_tags" ] || release_error "no patched Hermes release: publish release/vX-atm + annotated tag vX-atm on randlee/hermes-agent (loki@hermes)"
+
+  if [ -n "$HERMES_REF" ]; then
+    case "$HERMES_REF" in
+      v*-atm) HERMES_TAG="$HERMES_REF" ;;
+      *) release_error "HERMES_REF must name an existing v*-atm release tag" ;;
+    esac
+  else
+    HERMES_TAG="$(printf '%s\n' "$release_tags" | sort -V | tail -1 | cut -f1)"
+  fi
+
+  HERMES_SHA="$(printf '%s\n' "$release_tags" | awk -F '\t' -v tag="$HERMES_TAG" '$1 == tag { print $2; exit }')"
+  [ -n "$HERMES_SHA" ] || release_error "HERMES_REF must name an existing v*-atm release tag"
+  prepare_hermes_checkout
+}
+
+write_hermes_release() {
+  mkdir -p "$HERE/.cache"
+  {
+    printf 'tag=%s\n' "$HERMES_TAG"
+    printf 'sha=%s\n' "$HERMES_SHA"
+    printf 'version=%s\n' "$HERMES_VERSION"
+  } > "$HERMES_RELEASE_FILE"
+}
+
+prepare_hermes_checkout() {
+  mkdir -p "$HERE/.cache"
+  if [ ! -d "$FORK_WT/.git" ]; then
+    git clone --quiet --filter=blob:none "$FORK_URL" "$FORK_WT"
+  fi
+  git -C "$FORK_WT" fetch --quiet origin "refs/tags/$HERMES_TAG:refs/tags/$HERMES_TAG"
+  PEELED_SHA="$(git -C "$FORK_WT" rev-parse "refs/tags/$HERMES_TAG^{}")"
+  [ "$PEELED_SHA" = "$HERMES_SHA" ] || release_error "resolved Hermes tag did not peel to the remote commit"
+  git -C "$FORK_WT" checkout --quiet --detach "$HERMES_SHA"
+  HERMES_VERSION="$(git -C "$FORK_WT" show "$HERMES_SHA:pyproject.toml" | sed -n 's/^version[[:space:]]*=[[:space:]]*"\([^"]*\)".*/\1/p' | head -1)"
+  [ -n "$HERMES_VERSION" ] || release_error "hermes-agent version missing from pyproject.toml at $HERMES_TAG"
+  write_hermes_release
+}
 
 fetch_assets() {
   mkdir -p "$HERE/assets"
@@ -113,20 +162,20 @@ fetch_assets() {
 
 build_base() {
   echo "== building loki/hermes-testbed:base (fork image, --extra matrix dropped) =="
-  # Build from a fresh clone of the fork URL at HERMES_REF; never from anyone's checkout.
-  mkdir -p "$HERE/.cache"
-  if [ ! -d "$FORK_WT/.git" ]; then git clone --quiet "$FORK_URL" "$FORK_WT"; fi
-  git -C "$FORK_WT" fetch --quiet origin "$HERMES_REF"
-  git -C "$FORK_WT" checkout --quiet --detach FETCH_HEAD
-  HERMES_SHA="$(git -C "$FORK_WT" rev-parse HEAD)"
+  [ -n "${HERMES_TAG:-}" ] || resolve_hermes_release
+  # The resolver checked out this tag's peeled commit; never build a mutable
+  # branch or another local checkout.
   echo "$HERMES_SHA" > "$HERE/.cache/hermes-sha"
-  echo "base context: $HERMES_REF = $(git -C "$FORK_WT" log --oneline -1)"
+  write_hermes_release
+  echo "base context: $HERMES_TAG @ $HERMES_SHA (hermes-agent $HERMES_VERSION)"
   grep -c "inject_internal_message" "$FORK_WT/gateway/run.py" >/dev/null || \
-    { echo "FATAL: ATM patch (inject_internal_message) missing at $HERMES_REF"; exit 1; }
+    { echo "FATAL: ATM patch (inject_internal_message) missing at $HERMES_TAG"; exit 1; }
   DOCKER_BUILDKIT=1 docker buildx build --platform "$DOCKER_PLAT" --load \
     --build-arg HERMES_GIT_SHA="$HERMES_SHA" \
+    --build-arg HERMES_GIT_TAG="$HERMES_TAG" \
+    --build-arg HERMES_AGENT_VERSION="$HERMES_VERSION" \
     -t loki/hermes-testbed:base -f "$HERE/Dockerfile.base" "$FORK_WT"
-  echo "== base build done: fork SHA $HERMES_SHA stamped at /opt/hermes/.hermes_build_sha =="
+  echo "== base build done: $HERMES_TAG @ $HERMES_SHA (hermes-agent $HERMES_VERSION) stamped in image =="
 }
 
 build_testbed() {
@@ -162,11 +211,26 @@ build_testbed() {
     -t loki/hermes-testbed:testbed .
 }
 
-fetch_assets
 case "$TARGET" in
-  base)    build_base ;;
-  testbed) build_testbed ;;
-  all)     build_base; build_testbed ;;
-  *) echo "usage: $0 [base|testbed|all]"; exit 1 ;;
+  resolve-hermes-release)
+    resolve_hermes_release
+    printf 'tag=%s\nsha=%s\nversion=%s\n' "$HERMES_TAG" "$HERMES_SHA" "$HERMES_VERSION"
+    ;;
+  base|testbed|all)
+    resolve_hermes_release
+    echo "platform: $TESTBED_PLATFORM ($DOCKER_PLAT)"
+    docker context show >/dev/null 2>&1 || { echo "docker not reachable (colima start?)"; exit 1; }
+    fetch_assets
+    case "$TARGET" in
+      base) build_base ;;
+      testbed) build_testbed ;;
+      all) build_base; build_testbed ;;
+    esac
+    ;;
+  *) echo "usage: $0 [resolve-hermes-release|base|testbed|all]"; exit 1 ;;
 esac
-echo "== build done: $(docker images --format '{{.Repository}}:{{.Tag}} {{.Size}}' | grep hermes-testbed) =="
+case "$TARGET" in
+  base|testbed|all)
+    echo "== build done: $(docker images --format '{{.Repository}}:{{.Tag}} {{.Size}}' | grep hermes-testbed) =="
+    ;;
+esac
