@@ -12,7 +12,7 @@ Tool rule: use the native tool when you have it, otherwise the CLI form. Report 
 
 | step | native (Hermes) | CLI |
 |---|---|---|
-| send, ack required | `atm_send(to, body, requires_ack=True)` | `atm send <to> --requires-ack --stdin <<'EOF' … EOF` |
+| send, ack required | `atm_send(to, body, requires_ack=True)` | `atm send <to> --requires-ack --stdin --json <<'EOF' … EOF` (`message_id`) |
 | list ack-required inbox | `atm_list()` | `atm list --pending-ack --json` (rows carry `read` and `pending_ack`) |
 | list plain inbox | `atm_list()` | `atm list --unread --json` |
 | read by id | `atm_read(message_id=<id>)` | `atm read --message-id <id> --json` (`count`, `mutation_applied`) |
@@ -30,18 +30,20 @@ is required. Run-id = current unix time, used in your one-line body.
 
 S. **Start line.** Send ONE line `ATM TEST START skill: atm-smoke fixture: <fixture> agent: <you>` to the
    requester before anything else (see `REPORT.md`); never a second one; not a report step.
-0. **Self round trip first.** CLI only, in your terminal tool: `atm send <you> --host localhost --stdin`
+0. **Self round trip first.** CLI only, in your terminal tool: `atm send <you> --host localhost --stdin --json`
    with one line (native `atm_send` cannot address yourself — ATM rejects a self-addressed send; the
-   `--host localhost` loop is the one form that works). Then `atm list --unread --json`, `atm read
-   --message-id <id>`, list again: gone from unread. Observable: id, `count`, `mutation_applied`. Do not
+   `--host localhost` loop is the one form that works); take `<id>` from its JSON `message_id`. Then
+   `atm list --unread --json`, `atm read --message-id <id> --json`, list again: gone from unread.
+   Observable: id, `count`, `mutation_applied`. Do not
    open or run any other skill for this. If this fails, the partner steps still run.
 1. **Send.** Take `T=$(date -u +%Y-%m-%dT%H:%M:%SZ)`, then one line `atm-smoke <run-id> from <you>` to the partner, ack required (CLI
-   `--requires-ack`; native `requires_ack=True`). Observable: message id A; FAIL with the code on any
+   `--requires-ack --json`; native `requires_ack=True`). CLI takes message id A from JSON `message_id`.
+   Observable: message id A; FAIL with the code on any
    error (`MAY_HAVE_EXECUTED` is a FAIL).
 2. **Partner's message arrives.** Every 10 s for up to 300 s run exactly
    `atm list --pending-ack --from <partner bare name> --contains atm-smoke --json` (bare name: `tester`,
    never `tester@testbed`; native: `atm_list()` with the same filters) and read its `count`: 0 means not
-   yet, 1 means the single row is B (note its `message_id`; `read` is false). A wait line to the requester
+   yet, 1 means the single row is B (take its `message_id` from the structured JSON row; `read` is false). A wait line to the requester
    every 60 s (`REPORT.md`). Never filter `rows[]` yourself and never parse the JSON in a script: the
    command is the filter. It may already be there before your own send: check first.
    Observable: seconds, id B, `read`. Nothing else finds it: `--unread` never lists an ack-required
@@ -80,7 +82,7 @@ result: PASS | FAIL   (<passed>/<total> steps)
 steps:
   0 PASS Start line — <message id>
   1 PASS <step name> — <observable: message id / count / exit code / error code / seconds>
-  2 FAIL <step name> — cause: <component/evidence>; fix: <what you did | none possible>; retest: PASS|FAIL
+  2 FAIL <step name> — command: <exact command>; exit: <code>; stderr: <first line verbatim | <empty>>; cause: <quoted stderr>; fix: <what you did | none possible>; retest: PASS|FAIL
   ...
 elapsed: <seconds>s
 ```
@@ -88,4 +90,5 @@ elapsed: <seconds>s
 The `atm:` line comes from `atm doctor --json` (`.client_context.version`, `.daemon_context.version`)
 run in your terminal tool with your ATM identity in the environment — never guessed, never `0.0.0`.
 `agent:` is your own name and team (`hermes@testbed`, `tester@testbed`), the same value as in your
-start line. `result` is PASS only when every step line is PASS.
+start line. Derive `result` and its passed/total values from the finished step lines as specified in
+`REPORT.md`; never type them independently.

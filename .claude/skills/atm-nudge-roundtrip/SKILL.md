@@ -15,15 +15,19 @@ Two roles, one skill. The request says which role you are.
 
 0. **Start line.** Send the start line from `../atm-smoke/REPORT.md` (`ATM TEST START …`) to the requester
    before anything else. Observable: message id.
-1. **Send.** `atm send <hermes agent> --requires-ack --stdin <<'EOF'` with the single line
+1. **Send.** `atm send <hermes agent> --requires-ack --stdin --json <<'EOF'` with the single line
    `atm-nudge-roundtrip <run-id>: ack this message with reply "roundtrip <run-id>"` where run-id is
-   the current unix time. Observable: message id, exit code.
+   the current unix time. Take the message id from JSON `message_id`, never human CLI text.
+   Observable: message id, exit code.
 2. **Ack arrives.** Every 10 s for up to 300 s run exactly
    `atm list --unread --from <agent bare name> --contains "roundtrip <run-id>" --json` (bare name:
    `hermes`, never `hermes@testbed`; the partner is an agent that must read and ack; a wait line to the
-   requester every 60 s) until its `count` is 1; read that row by id. Never filter `rows[]` yourself and
-   never parse the JSON in a script: the command is the filter. Observable: seconds, or timeout. Never conclude before the deadline. Timeout is
-   FAIL, cause `no ack within 300 s`. (There is no step for "my message is no longer pending":
+   requester every 60 s) until its `count` is 1; take the row id from structured JSON `rows[0].message_id`
+   and read it with `atm read --message-id <id> --json`. Never filter `rows[]` yourself and
+   never parse the JSON in a script: the command is the filter. Observable: seconds, or timeout. Never conclude before the deadline. On timeout,
+   record `no ack within 300 s` as the observable, then use the final poll command, exit code, and
+   stderr in the standardized FAIL evidence from `../atm-smoke/REPORT.md`; do not invent a causal
+   narrative. (There is no step for "my message is no longer pending":
    `atm list --pending-ack` shows only messages *you* must ack, never the state of a message you sent.)
 
 ## Responder steps (Hermes agent)
@@ -65,7 +69,7 @@ result: PASS | FAIL   (<passed>/<total> steps)
 steps:
   0 PASS Start line — <message id>
   1 PASS <step name> — <observable: message id / count / exit code / error code / seconds>
-  2 FAIL <step name> — cause: <component/evidence>; fix: <what you did | none possible>; retest: PASS|FAIL
+  2 FAIL <step name> — command: <exact command>; exit: <code>; stderr: <first line verbatim | <empty>>; cause: <quoted stderr>; fix: <what you did | none possible>; retest: PASS|FAIL
   ...
 elapsed: <seconds>s
 ```
@@ -73,4 +77,5 @@ elapsed: <seconds>s
 The `atm:` line comes from `atm doctor --json` (`.client_context.version`, `.daemon_context.version`)
 run in your terminal tool with your ATM identity in the environment — never guessed, never `0.0.0`.
 `agent:` is your own name and team (`hermes@testbed`, `tester@testbed`), the same value as in your
-start line. `result` is PASS only when every step line is PASS.
+start line. Derive `result` and its passed/total values from the finished step lines as specified in
+`../atm-smoke/REPORT.md`; never type them independently.

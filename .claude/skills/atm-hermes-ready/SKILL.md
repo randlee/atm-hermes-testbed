@@ -20,7 +20,7 @@ below is the team of those agents (on the testbed fixture it is `testbed`, not `
    `last_seen_at` and `last_seen_age_seconds` fields; never print or copy `endpoint` or `capability`. Observable: agents
    without a receiver entry, stale entries.
 3. **Ping.** Take `T=$(date -u +%Y-%m-%dT%H:%M:%SZ)`, then send each expected agent exactly this one
-   line with `--requires-ack --stdin`:
+   line with `--requires-ack --stdin --json` and take its id from JSON `message_id`:
    `atm-hermes-ready ping <run-id>: ack this message with reply "ready"` (run-id = current unix time).
    Observable: message id per agent.
 4. **Pong.** Poll for 120 s from the ping (a real ack arrives in under 60 s; a wait line to the requester at
@@ -29,9 +29,11 @@ below is the team of those agents (on the testbed fixture it is `testbed`, not `
    reply from that agent after the ping counts, whatever its text (record the text, do not judge it;
    three runs produced three different reply texts). Never filter `rows[]` yourself and never parse
    the JSON in a script: the command is the filter. Observable: seconds per agent, or timeout. Never conclude before the deadline: a reply that has not arrived at
-   30 s or 90 s is not a result. When the 120 s pass without a reply the step is FAIL for that agent,
-   cause `no ack within 120 s`; on a fixture whose gateway has no nudge adapter (atm-core #1307) that
-   is the expected product finding, still reported as FAIL with that cause.
+   30 s or 90 s is not a result. When the 120 s pass without a reply the step is FAIL for that agent;
+   on a fixture whose gateway has no nudge adapter (atm-core #1307) that is the expected product
+   finding. Record `no ack within 120 s` as the timeout observable, then use
+   the final poll command, exit code, and stderr in the standardized FAIL evidence from
+   `../atm-smoke/REPORT.md`; do not invent a causal narrative.
 
 Never restart gateways or the daemon from this skill; report and stop.
 
@@ -56,7 +58,7 @@ result: PASS | FAIL   (<passed>/<total> steps)
 steps:
   0 PASS Start line — <message id>
   1 PASS <step name> — <observable: message id / count / exit code / error code / seconds>
-  2 FAIL <step name> — cause: <component/evidence>; fix: <what you did | none possible>; retest: PASS|FAIL
+  2 FAIL <step name> — command: <exact command>; exit: <code>; stderr: <first line verbatim | <empty>>; cause: <quoted stderr>; fix: <what you did | none possible>; retest: PASS|FAIL
   ...
 elapsed: <seconds>s
 ```
@@ -64,4 +66,5 @@ elapsed: <seconds>s
 The `atm:` line comes from `atm doctor --json` (`.client_context.version`, `.daemon_context.version`)
 run in your terminal tool with your ATM identity in the environment — never guessed, never `0.0.0`.
 `agent:` is your own name and team (`hermes@testbed`, `tester@testbed`), the same value as in your
-start line. `result` is PASS only when every step line is PASS.
+start line. Derive `result` and its passed/total values from the finished step lines as specified in
+`../atm-smoke/REPORT.md`; never type them independently.
