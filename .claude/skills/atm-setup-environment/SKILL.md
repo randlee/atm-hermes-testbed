@@ -37,22 +37,21 @@ Record PASS or FAIL for every step with the observable that decided it.
 4. **Self round trip** (the fastest test; every agent runs it first). Send one line to yourself,
    read it by id, confirm it left the unread list.
    - native: `atm_send(to=<you>, body)`, then `atm_read(message_id=<id>)`, then `atm_list()`.
-   - CLI: `atm send <you> --host localhost --stdin <<'EOF' … EOF` (a bare same-team self-send is
-     rejected by design; the host-qualified form is the self-send), then
+   - CLI: `atm send <you> --host localhost --stdin --json <<'EOF' … EOF` (a bare same-team self-send is
+     rejected by design; the host-qualified form is the self-send); use its JSON `message_id`, then
      `atm read --message-id <id> --json`, then `atm list --unread --json`.
    Observable: message id; `count` 1 and `mutation_applied` true; id absent from unread afterwards.
-   If the send fails with `no enabled trusted peer matches 'localhost'` or a peer-trust/mTLS-authority
-   error, the fixture's bring-up did not register the localhost trust entry before the daemon started
-   (the trust store is snapshotted at daemon start, so adding it now changes nothing until the daemon
-   restarts, which is not yours to do). Do not add, replace or edit trust entries; do not try other
-   ports. Record FAIL — cause: `localhost trust entry missing at daemon start (bring-up)`; fix: none
-   possible; and continue with step 5.
+   Never infer the id from human CLI text. Only if the quoted stderr from this send contains
+   `no enabled trusted peer matches 'localhost'` or the named peer-trust/mTLS-authority error may
+   the FAIL cause say `localhost trust entry missing at daemon start (bring-up)`; otherwise its cause
+   is the quoted stderr from the failed command. Do not add, replace or edit trust entries; do not
+   try other ports; continue with step 5.
 
 5. **Cross-host peer (when the fixture has one).** If the request names a peer host (the testbed
    always does: host and container are peers from the start), `atm peer trust list --json` shows that
-   host `enabled`, and one line sent to the report address (`atm send <agent@team.host> --stdin`; the
+   host `enabled`, and one line sent to the report address (`atm send <agent@team.host> --stdin --json`; the
    report address lives on the peer host, that is the point of it — never probe a fixture-local agent
-   through the peer) returns a message id. Observable: enabled yes/no, message id. Missing trust is an environment fix
+   through the peer) returns its JSON `message_id`. Observable: enabled yes/no, message id. Missing trust is an environment fix
    (`atm peer trust add --host <peer-host> --fingerprint <its fingerprint> --https-port <port> --yes`,
    fingerprint from that host's `atm peer certificate show --json`; never print fingerprints), then
    retest. SKIP with that word when the request names no peer host.
@@ -60,7 +59,7 @@ Record PASS or FAIL for every step with the observable that decided it.
 ## Report
 
 Send exactly one message to the address given in the request, copied verbatim including its
-`.host` suffix (`atm send <agent@team.host> --stdin <<'EOF' … EOF`; the suffix is what routes the
+`.host` suffix (`atm send <agent@team.host> --stdin --json <<'EOF' … EOF`; the suffix is what routes the
 report across hosts — without it the message lands in a local queue nobody reads). Use the template
 `../atm-smoke/REPORT.md` (sibling skill directory), skill name `atm-setup-environment`.
 
@@ -77,7 +76,7 @@ result: PASS | FAIL   (<passed>/<total> steps)
 steps:
   0 PASS Start line — <message id>
   1 PASS <step name> — <observable: message id / count / exit code / error code / seconds>
-  2 FAIL <step name> — cause: <component/evidence>; fix: <what you did | none possible>; retest: PASS|FAIL
+  2 FAIL <step name> — command: <exact command>; exit: <code>; stderr: <first line verbatim | <empty>>; cause: <quoted stderr>; fix: <what you did | none possible>; retest: PASS|FAIL
   ...
 elapsed: <seconds>s
 ```
@@ -85,4 +84,5 @@ elapsed: <seconds>s
 The `atm:` line comes from `atm doctor --json` (`.client_context.version`, `.daemon_context.version`)
 run in your terminal tool with your ATM identity in the environment — never guessed, never `0.0.0`.
 `agent:` is your own name and team (`hermes@testbed`, `tester@testbed`), the same value as in your
-start line. `result` is PASS only when every step line is PASS.
+start line. Derive `result` and its passed/total values from the finished step lines as specified in
+`../atm-smoke/REPORT.md`; never type them independently.
