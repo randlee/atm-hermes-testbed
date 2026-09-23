@@ -42,10 +42,28 @@ $AS_HERMES sh -c "cd /opt/data && hermes plugins enable hermes-atm-native-tools"
 mkdir -p /opt/testbed/.atm && chown -R hermes /opt/testbed/.atm
 # The gateway is not s6-supervised (main-hermes is `sleep infinity`); start it ourselves, from the
 # profile dir, as hermes, and wait for the hook to load so the receiver registers before any test.
+# Hermes >= 2026.9.21 is multiplex-only (fork ed703493da): during an agent turn a profile's API keys are
+# read from $HERMES_HOME/.env only, never from the process environment, so the allowlisted key must be
+# in the profile env file. No key: stop here, not four silent skill phases later.
+[ -n "${ANTHROPIC_API_KEY:-}" ] || { echo "bringup: FATAL ANTHROPIC_API_KEY is not in the container environment (env/allowlist.env)"; exit 1; }
+touch /opt/data/.env
+grep -q '^ANTHROPIC_API_KEY=' /opt/data/.env || printf 'ANTHROPIC_API_KEY=%s\n' "$ANTHROPIC_API_KEY" >> /opt/data/.env
+chown hermes:hermes /opt/data/.env; chmod 600 /opt/data/.env
 pkill -f "[h]ermes gateway run" 2>/dev/null || true; sleep 1
 mkdir -p /opt/data/logs && chown hermes /opt/data/logs
 $AS_HERMES sh -c "cd /opt/data && nohup hermes gateway run --replace >>/opt/data/logs/gateway.log 2>&1 &"
 for i in $(seq 1 60); do grep -q "hook(s) loaded" /opt/data/logs/gateway.log 2>/dev/null && break; sleep 1; done
+# Provider probe: one inbound turn, then the gateway's own verdict from its log, verbatim. A gateway with no
+# AI provider logs "Model resolution failed" within a second of the inbound message and never answers.
+MARK=$(wc -l < /opt/data/logs/gateway.log)
+printf 'bringup probe: reply with the single word pong\n' | atm send hermes --stdin >/dev/null
+for i in $(seq 1 30); do tail -n +$((MARK+1)) /opt/data/logs/gateway.log | grep -q "inbound message" && break; sleep 1; done
+tail -n +$((MARK+1)) /opt/data/logs/gateway.log | grep -q "inbound message" || { echo "bringup: FATAL gateway logged no inbound message for the probe within 30s"; tail -n +$((MARK+1)) /opt/data/logs/gateway.log; exit 1; }
+sleep 5
+if tail -n +$((MARK+1)) /opt/data/logs/gateway.log | grep -q "Model resolution failed"; then
+  echo "bringup: FATAL hermes gateway has no AI provider:"; tail -n +$((MARK+1)) /opt/data/logs/gateway.log | grep "Model resolution failed" | head -1 | cut -c1-300; exit 1
+fi
+echo "bringup: provider probe ok (inbound turn, no model-resolution failure)"
 # 6 (Claude Code is installed at image build; this is the fallback for an older image)
 command -v claude >/dev/null 2>&1 || /opt/testbed/harness/install-claude-code.sh >/tmp/install-claude-code.log 2>&1 || echo "bringup: WARN claude install failed (see /tmp/install-claude-code.log)"
 $AS_HERMES sh -c "cd /opt/data && herdr integration install claude" >/dev/null 2>&1 || true
