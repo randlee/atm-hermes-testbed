@@ -280,7 +280,7 @@ RUN touch ./README.md
 # is baked read-only-but-world-readable like the rest of the install tree.
 ENV UV_PYTHON_INSTALL_DIR=/opt/hermes/python
 RUN set -eu; \
-    if grep -q "python_full_version >= '3.14'" uv.lock; then PY=3.14; else PY=3.13; fi; \
+    if sed -n '1,/^\[\[package\]\]/p' uv.lock | grep -q "python_full_version >= '3.14'"; then PY=3.14; else PY=3.13; fi; \
     uv python install "$PY"; \
     chmod -R a+rX "$UV_PYTHON_INSTALL_DIR"; \
     uv sync --frozen --no-install-project --python "$PY" --extra all --extra messaging --extra otlp --extra anthropic --extra bedrock --extra azure-identity
