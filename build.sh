@@ -180,10 +180,21 @@ build_base() {
   echo "base context: $HERMES_TAG @ $HERMES_SHA (hermes-agent $HERMES_VERSION)"
   grep -c "inject_internal_message" "$FORK_WT/gateway/run.py" >/dev/null || \
     { echo "FATAL: ATM patch (inject_internal_message) missing at $HERMES_TAG"; exit 1; }
+  # Frontend build era (GH issue #20): upstream v0.22.1+ replaced
+  # `npm run build` (tsc+vite) with the scripts/build/*.mjs monorepo
+  # assembler. Detect by the assembler's own entry script existing in the
+  # checked-out tag — file presence, never version-string parsing.
+  if [ -f "$FORK_WT/scripts/build/node-deps.mjs" ]; then
+    FRONTEND_ERA=assembler
+  else
+    FRONTEND_ERA=legacy
+  fi
+  echo "frontend era: $FRONTEND_ERA"
   DOCKER_BUILDKIT=1 docker buildx build --platform "$DOCKER_PLAT" --load \
     --build-arg HERMES_GIT_SHA="$HERMES_SHA" \
     --build-arg HERMES_GIT_TAG="$HERMES_TAG" \
     --build-arg HERMES_AGENT_VERSION="$HERMES_VERSION" \
+    --build-arg FRONTEND_ERA="$FRONTEND_ERA" \
     -t loki/hermes-testbed:base -f "$HERE/Dockerfile.base" "$FORK_WT"
   echo "== base build done: $HERMES_TAG @ $HERMES_SHA (hermes-agent $HERMES_VERSION) stamped in image =="
 }
