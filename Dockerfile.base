@@ -273,9 +273,16 @@ RUN touch ./README.md
 # right), while v0.22.x's uv.lock resolves for python_full_version >= 3.14.
 # Pick from the lockfile's own resolution markers instead of hardcoding, so
 # one Dockerfile.base builds both eras.
+# UV_PYTHON_INSTALL_DIR is REQUIRED to be image-visible: uv-managed pythons
+# default to /root/.local (root-only), and the .venv symlinks to the
+# interpreter — the runtime `hermes` user then dies at exec with EACCES
+# (hit live 2026-10-15: stage2-hook 'Permission denied'). /opt/hermes/python
+# is baked read-only-but-world-readable like the rest of the install tree.
+ENV UV_PYTHON_INSTALL_DIR=/opt/hermes/python
 RUN set -eu; \
     if grep -q "python_full_version >= '3.14'" uv.lock; then PY=3.14; else PY=3.13; fi; \
     uv python install "$PY"; \
+    chmod -R a+rX "$UV_PYTHON_INSTALL_DIR"; \
     uv sync --frozen --no-install-project --python "$PY" --extra all --extra messaging --extra otlp --extra anthropic --extra bedrock --extra azure-identity
 
 # ---------- Frontend build (cached independently from Python source) ----------
