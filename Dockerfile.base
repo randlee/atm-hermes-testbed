@@ -288,11 +288,28 @@ RUN set -eu; \
 # ---------- Frontend build (cached independently from Python source) ----------
 # Copy only the frontend source trees first so that Python-only changes don't
 # invalidate the (relatively slow) web + ui-tui build layer.
+#
+# FRONTEND_ERA (build.sh detects from the checkout and passes as --build-arg):
+#   legacy    — tags <= v2026.9.24: `npm run build` = tsc+vite in-place.
+#   assembler — tags >= v0.22.1: upstream replaced the frontend build with a
+#               scripts/build/*.mjs monorepo assembler (node-deps.mjs first,
+#               icon staging, tui.mjs/web.mjs emitting to /opt/products).
+#               That flow needs scripts/ + assets/, which only arrive with the
+#               full source COPY below, so the assembler build runs AFTER it
+#               (testbed GH issue #20). Docker COPY merges without deleting,
+#               so products placed in ui-tui/ and hermes_cli/web_dist survive
+#               the source COPY — the same merge semantics upstream's
+#               multi-stage runtime relies on.
+ARG FRONTEND_ERA=legacy
 COPY web/ web/
 COPY ui-tui/ ui-tui/
 COPY apps/shared/ apps/shared/
-RUN cd web && npm run build && \
-    cd ../ui-tui && npm run build
+RUN if [ "$FRONTEND_ERA" != "assembler" ]; then \
+      cd web && npm run build && \
+      cd ../ui-tui && npm run build; \
+    else \
+      echo "frontend: assembler era — build deferred to post-source-copy step"; \
+    fi
 
 # ---------- Source code ----------
 # .dockerignore excludes node_modules, so the installs above survive.
@@ -303,6 +320,28 @@ RUN cd web && npm run build && \
 # gives the non-root hermes user read + traverse but no write; root retains
 # write so the build steps below don't need chmod u+w dances.
 COPY --link --chmod=a+rX,go-w . .
+
+# ---------- Frontend build, assembler era (FRONTEND_ERA=assembler) ----------
+# Runs AFTER the full source COPY because the assembler scripts live in
+# scripts/build/ and icon generation needs scripts/generate_icons.py +
+# assets/ — none of which the early manifest-only COPY brings in. Mirrors
+# upstream v0.22.2's frontend_build stage collapsed into this single stage:
+# node-deps.mjs reconciles node_modules (receipt-based reuse of the early
+# npm install when it matches), icons stage to /tmp, tui.mjs/web.mjs emit
+# products, products replace ui-tui/ and land in hermes_cli/web_dist (the
+# HERMES_TUI_DIR / HERMES_WEB_DIST runtime contract below).
+RUN if [ "$FRONTEND_ERA" = "assembler" ]; then \
+      set -eu; \
+      node scripts/build/node-deps.mjs --source /opt/hermes --workspace ui-tui --workspace web; \
+      /opt/hermes/.venv/bin/python -I scripts/generate_icons.py --source /opt/hermes --out /tmp/hermes-icons; \
+      node scripts/build/tui.mjs --source /opt/hermes --out /opt/products/tui; \
+      node scripts/build/web.mjs --source /opt/hermes --icons /tmp/hermes-icons --out /opt/products/web; \
+      rm -rf /opt/hermes/ui-tui; \
+      cp -a /opt/products/tui /opt/hermes/ui-tui; \
+      mkdir -p /opt/hermes/hermes_cli; \
+      rm -rf /opt/hermes/hermes_cli/web_dist; \
+      cp -a /opt/products/web /opt/hermes/hermes_cli/web_dist; \
+    fi
 
 # ---------- Permissions ----------
 # Link hermes-agent itself (editable). Deps are already installed in the
