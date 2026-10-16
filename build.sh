@@ -75,7 +75,17 @@ resolve_hermes_release() {
       *) release_error "HERMES_REF must name an existing v*-atm release tag" ;;
     esac
   else
-    HERMES_TAG="$(printf '%s\n' "$release_tags" | sort -V | tail -1 | cut -f1)"
+    # Era-ranked pick: upstream switched tag schemes on 2026-10-08 (date-style
+    # v2026.9.24 aliased to semver v0.21.5; releases since are v0.x). Plain
+    # `sort -V` ranks v2026.9.24-atm above v0.22.2-atm forever — same bug class
+    # as hermes-ops grecon-4uz. Era 0 = date-style (major >= 1000), era 1 =
+    # semver; within an era, numeric per component.
+    HERMES_TAG="$(printf '%s\n' "$release_tags" | awk -F'\t' '{
+        ver = $1; sub(/^v/, "", ver); sub(/-atm$/, "", ver);
+        n = split(ver, p, ".");
+        era = (p[1] + 0 >= 1000) ? 0 : 1;
+        printf "%d %06d %06d %06d %06d\t%s\n", era, p[1] + 0, p[2] + 0, p[3] + 0, (n >= 4 ? p[4] + 0 : 0), $1
+      }' | sort | tail -1 | cut -f2)"
   fi
 
   HERMES_SHA="$(printf '%s\n' "$release_tags" | awk -F '\t' -v tag="$HERMES_TAG" '$1 == tag { print $2; exit }')"
