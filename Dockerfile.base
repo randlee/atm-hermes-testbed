@@ -268,7 +268,15 @@ COPY pyproject.toml uv.lock ./
 RUN touch ./README.md
 # testbed variant: --extra matrix dropped (python-olm fails to build under amd64/Rosetta;
 # Matrix platform not needed for ATM graph testing)
-RUN uv sync --frozen --no-install-project --extra all --extra messaging --extra otlp --extra anthropic --extra bedrock --extra azure-identity
+# Interpreter selection (2026-10-15): the upstream python floor drifted across
+# release lines — v2026.9.24 requires >=3.11,<3.14 (trixie's system 3.13 is
+# right), while v0.22.x's uv.lock resolves for python_full_version >= 3.14.
+# Pick from the lockfile's own resolution markers instead of hardcoding, so
+# one Dockerfile.base builds both eras.
+RUN set -eu; \
+    if grep -q "python_full_version >= '3.14'" uv.lock; then PY=3.14; else PY=3.13; fi; \
+    uv python install "$PY"; \
+    uv sync --frozen --no-install-project --python "$PY" --extra all --extra messaging --extra otlp --extra anthropic --extra bedrock --extra azure-identity
 
 # ---------- Frontend build (cached independently from Python source) ----------
 # Copy only the frontend source trees first so that Python-only changes don't
