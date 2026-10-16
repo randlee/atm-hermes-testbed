@@ -247,12 +247,14 @@ RUN cd plugins/platforms/photon/sidecar && \
 # Health export is enabled. Collector and observability-backend dependencies
 # remain external and are not part of the Hermes production image.
 #
-# The hindsight memory provider's client (hindsight-client) is baked in
-# for the same reason: it lazy-installs into /opt/hermes/.venv at first
-# use, which lives inside the (immutable) image layer rather than the
-# mounted /opt/data volume, so it is lost on every container recreate /
-# image update and recall/retain then fails with
-# `ModuleNotFoundError: No module named 'hindsight_client'` (#38128).
+# NOTE: --extra hindsight was dropped from this line 2026-10-15. Upstream
+# removed the [hindsight] optional-dependency itself (hermes-agent
+# 73c598e319e "build: drop the hermes-agent[hindsight] extra", in v2026.9.24;
+# 285768fdfbb dropped the stale pm copy), so `uv sync --frozen` against any
+# tag >= v2026.9.24 fails with "Extra `hindsight` is not defined in the
+# project's `optional-dependencies` table" (hit live building v0.22.2-atm).
+# The hindsight memory provider, if ever needed again, is a plugin now — not
+# an extra.
 #
 # The Matrix gateway's deps ([matrix] extra) are baked in because
 # python-olm (transitive via mautrix[encryption]) builds from source on
@@ -266,7 +268,22 @@ COPY pyproject.toml uv.lock ./
 RUN touch ./README.md
 # testbed variant: --extra matrix dropped (python-olm fails to build under amd64/Rosetta;
 # Matrix platform not needed for ATM graph testing)
-RUN uv sync --frozen --no-install-project --extra all --extra messaging --extra otlp --extra anthropic --extra bedrock --extra azure-identity --extra hindsight
+# Interpreter selection (2026-10-15): the upstream python floor drifted across
+# release lines — v2026.9.24 requires >=3.11,<3.14 (trixie's system 3.13 is
+# right), while v0.22.x's uv.lock resolves for python_full_version >= 3.14.
+# Pick from the lockfile's own resolution markers instead of hardcoding, so
+# one Dockerfile.base builds both eras.
+# UV_PYTHON_INSTALL_DIR is REQUIRED to be image-visible: uv-managed pythons
+# default to /root/.local (root-only), and the .venv symlinks to the
+# interpreter — the runtime `hermes` user then dies at exec with EACCES
+# (hit live 2026-10-15: stage2-hook 'Permission denied'). /opt/hermes/python
+# is baked read-only-but-world-readable like the rest of the install tree.
+ENV UV_PYTHON_INSTALL_DIR=/opt/hermes/python
+RUN set -eu; \
+    if sed -n '1,/^\[\[package\]\]/p' uv.lock | grep -q "python_full_version >= '3.14'"; then PY=3.14; else PY=3.13; fi; \
+    uv python install "$PY"; \
+    chmod -R a+rX "$UV_PYTHON_INSTALL_DIR"; \
+    uv sync --frozen --no-install-project --python "$PY" --extra all --extra messaging --extra otlp --extra anthropic --extra bedrock --extra azure-identity
 
 # ---------- Frontend build (cached independently from Python source) ----------
 # Copy only the frontend source trees first so that Python-only changes don't
