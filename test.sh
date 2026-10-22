@@ -54,20 +54,29 @@ esac
 PRE="$(gh run list -R "$ATM_REPO" --workflow prerelease-archive.yml --branch "$TAG" --json databaseId,conclusion \
        --jq 'first(.[]|select(.conclusion=="success"))|.databaseId')"
 [ -n "$PRE" ] || die "no successful prerelease-archive.yml run for $TAG"
-# The wheels are uploaded by an early ci.yml job, so the run's overall conclusion does not matter;
-# a missing artifact fails the download below.
-CI="$(gh api "repos/$ATM_REPO/actions/workflows/ci.yml/runs?head_sha=$SHA" --jq 'first(.workflow_runs[])|.id')"
-[ -n "$CI" ] || die "no ci.yml run for $SHA (the commit under $TAG)"
 ARCH="$(if [ "$(uname -m)" = arm64 ] || [ "$(uname -m)" = aarch64 ]; then echo aarch64; else echo x86_64; fi)"
-echo "atm $V = $TAG @ $(echo "$SHA" | cut -c1-9); prerelease-archive run $PRE; ci run $CI; arch $ARCH"
+echo "atm $V = $TAG @ $(echo "$SHA" | cut -c1-9); prerelease-archive run $PRE; arch $ARCH"
 
 ATM_DIR="$HERE/.cache/atm-$V"; WHEELS="$HERE/.cache/wheels-$V"
 if [ ! -f "$ATM_DIR/atm_${V}_${ARCH}-unknown-linux-gnu.tar.gz" ]; then
   rm -rf "$ATM_DIR"; gh run download "$PRE" -R "$ATM_REPO" -n "${ARCH}-unknown-linux-gnu" -D "$ATM_DIR" || die "tarball download failed"
 fi
-if ! ls "$WHEELS"/hermes_atm-*.whl >/dev/null 2>&1; then
-  rm -rf "$WHEELS"; gh run download "$CI" -R "$ATM_REPO" -n "hermes-atm-wheels-linux-$(if [ "$ARCH" = aarch64 ]; then echo aarch64; else echo x86_64; fi)" -D "$WHEELS" || die "wheels download failed"
+# Wheels come from the GitHub prerelease's release assets (atm-core #2126, PR #2128):
+# /prerelease attaches every wheel + checksums.txt to the release. The old ci.yml-run
+# artifact lookup broke on v1.6.3 — the bump PR targeted develop, so the ci.yml run on
+# the tag commit built no wheels and `gh run download` died with "wheels download failed".
+if ! ls "$WHEELS"/hermes_atm-*.whl >/dev/null 2>&1 || [ ! -f "$WHEELS/checksums.txt" ]; then
+  rm -rf "$WHEELS"; mkdir -p "$WHEELS"
+  gh release download "$TAG" -R "$ATM_REPO" --clobber -D "$WHEELS" \
+    -p "hermes_atm-${V}-py3-none-any.whl" \
+    -p "atm_graft-${V}-cp311-abi3-manylinux_2_17_${ARCH}.manylinux2014_${ARCH}.whl" \
+    -p "checksums.txt" || die "wheels download failed (release assets of $TAG)"
 fi
+# verify every downloaded wheel against the release checksums (fails the run on mismatch);
+# the grep selects exactly the wheels downloaded above — checksums.txt lists all platforms
+(cd "$WHEELS" && grep -E " (hermes_atm-${V}-py3-none-any|atm_graft-${V}-cp311-abi3-manylinux_2_17_${ARCH}\.manylinux2014_${ARCH})\.whl$" checksums.txt \
+  | shasum -a 256 -c -) \
+  || die "wheel checksum verification failed against checksums.txt of $TAG"
 
 # ── 2. install everything into the image (Hermes fork from its URL, herdr release, ATM prerelease) ─
 step "build (10-20 min the first time, seconds when nothing changed)"
@@ -170,7 +179,7 @@ FILLED=${SLOTS% *}; PASSED=${SLOTS#* }
 if [ "$FILLED" -eq 7 ] && [ "$PASSED" -eq 7 ] && [ "$HERDR_OK" = yes ]; then VERDICT=PASS; else VERDICT=FAIL; fi   # a red herdr doctor state fails the run (atm-hermes-testbed #8)
 {
   echo "$VERDICT  skills reported $FILLED/7, PASS $PASSED/7 ($REPORTS report messages); herdr doctor ok: $HERDR_OK"
-  echo "atm:    $V ($TAG @ $(echo "$SHA" | cut -c1-9), prerelease-archive run $PRE, ci run $CI)"
+  echo "atm:    $V ($TAG @ $(echo "$SHA" | cut -c1-9), prerelease-archive run $PRE, wheels from release assets)"
   echo "hermes: randlee/hermes-agent $HERMES_TAG @ $HERMES_SHA (hermes-agent $HERMES_VERSION)"
   echo "$VERSIONS"
   echo "herdr transport: $HERDR_TRANSPORT (atm doctor --json .herdr.endpoints[].transport; bringup writes [herdr] transport=\"socket\" to /root/.atm.toml)"
