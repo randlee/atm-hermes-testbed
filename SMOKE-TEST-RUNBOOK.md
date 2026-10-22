@@ -25,7 +25,7 @@ Where each component comes from (no local builds, ever):
 | component | source | pin |
 | --- | --- | --- |
 | ATM daemon + CLI | `prerelease-archive.yml` run for tag `prerelease/v$V`, artifact `aarch64-unknown-linux-gnu` | the tag |
-| hermes_atm + atm_graft wheels | `ci.yml` run for commit `$SHA`, artifact `hermes-atm-wheels-linux-aarch64` | the tag's commit |
+| hermes_atm + atm_graft wheels | GitHub prerelease `prerelease/v$V` release assets (`gh release download`), sha256-verified against the release's `checksums.txt` (atm-core #2126 / PR #2128; replaces the old `ci.yml`-run artifact lookup, which broke on v1.6.3 when the bump PR targeted develop) | the tag |
 | herdr | GitHub release `herdrdev/herdr` `v0.8.2`, sha256-checked in `build.sh` (same version as the host) | `build.sh` |
 | hermes-agent | fork `randlee/hermes-agent` `origin/main` head at build time (loki): `build.sh base` fetches origin/main, resets the detached worktree `hermes-agent-randlee-worktrees/testbed-build` to that SHA, fails closed if `inject_internal_message` is missing from `gateway/run.py`, builds `loki/hermes-testbed:base`. The citable pin is the SHA the build prints as `base context: <sha> <subject>` (in-image stamp `/opt/hermes/.hermes_build_sha` pending loki's HERMES_GIT_SHA PR) | `./build.sh base` |
 
@@ -48,8 +48,13 @@ git fetch origin && git reset --hard origin/main && git clean -fdx -e env/
 ```sh
 PRE=$(gh run list -R randlee/atm-core --workflow prerelease-archive.yml --branch prerelease/v$V --json databaseId --jq '.[0].databaseId')
 gh run download $PRE -R randlee/atm-core -n aarch64-unknown-linux-gnu -D /tmp/atm-$V
-CI=$(gh run list -R randlee/atm-core --workflow ci.yml --json databaseId,headSha --jq ".[]|select(.headSha==\"$SHA\")|.databaseId" | head -1)
-gh run download $CI -R randlee/atm-core -n hermes-atm-wheels-linux-aarch64 -D /tmp/wheels-$V
+# wheels: release assets of the prerelease, sha256-verified (atm-core #2126/PR #2128)
+mkdir -p /tmp/wheels-$V
+gh release download prerelease/v$V -R randlee/atm-core --clobber -D /tmp/wheels-$V \
+  -p "hermes_atm-${V}-py3-none-any.whl" \
+  -p "atm_graft-${V}-cp311-abi3-manylinux_2_17_aarch64.manylinux2014_aarch64.whl" \
+  -p checksums.txt
+(cd /tmp/wheels-$V && grep -E " (hermes_atm-${V}-py3-none-any|atm_graft-${V}-cp311-abi3-manylinux_2_17_aarch64\.manylinux2014_aarch64)\.whl$" checksums.txt | shasum -a 256 -c -)
 ```
 
 ## 3. Build the image
